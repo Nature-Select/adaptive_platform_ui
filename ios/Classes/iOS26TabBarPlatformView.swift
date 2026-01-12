@@ -141,18 +141,29 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                 let item: UITabBarItem
 
-                // Use UITabBarSystemItem.search for search tabs (iOS 26+ Liquid Glass)
+                // Use search style for separated tabs (iOS 26+ Liquid Glass)
                 if isSearch {
                     if #available(iOS 26.0, *) {
+                        // 先用 .search 创建以获得分离效果，然后替换图标
                         item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                         if let title = title {
                             item.title = title
                         }
-
+                        // 如果有自定义图标，替换默认的搜索图标
+                        if i < symbols.count && !symbols[i].isEmpty {
+                            let customImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                            item.image = customImage
+                            item.selectedImage = customImage
+                        }
                     } else {
-                        // Fallback for older iOS versions
-                        let searchImage = UIImage(systemName: "magnifyingglass")
-                        item = UITabBarItem(title: title, image: searchImage, selectedImage: searchImage)
+                        // Fallback for older iOS versions - use custom icon or default search
+                        let image: UIImage?
+                        if i < symbols.count && !symbols[i].isEmpty {
+                            image = UIImage(systemName: symbols[i])
+                        } else {
+                            image = UIImage(systemName: "magnifyingglass")
+                        }
+                        item = UITabBarItem(title: title, image: image, selectedImage: image)
                     }
                 } else {
                     var image: UIImage? = nil
@@ -288,18 +299,29 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
                     let item: UITabBarItem
 
-                    // Use UITabBarSystemItem.search for search tabs (iOS 26+ Liquid Glass)
+                    // Use search style for separated tabs (iOS 26+ Liquid Glass)
                     if isSearch {
                         if #available(iOS 26.0, *) {
+                            // 先用 .search 创建以获得分离效果，然后替换图标
                             item = UITabBarItem(tabBarSystemItem: .search, tag: i)
                             if let title = title {
                                 item.title = title
                             }
-
+                            // 如果有自定义图标，替换默认的搜索图标
+                            if i < symbols.count && !symbols[i].isEmpty {
+                                let customImage = UIImage(systemName: symbols[i])?.withRenderingMode(.alwaysTemplate)
+                                item.image = customImage
+                                item.selectedImage = customImage
+                            }
                         } else {
-                            // Fallback for older iOS versions
-                            let searchImage = UIImage(systemName: "magnifyingglass")
-                            item = UITabBarItem(title: title, image: searchImage, selectedImage: searchImage)
+                            // Fallback for older iOS versions - use custom icon or default search
+                            let image: UIImage?
+                            if i < symbols.count && !symbols[i].isEmpty {
+                                image = UIImage(systemName: symbols[i])
+                            } else {
+                                image = UIImage(systemName: "magnifyingglass")
+                            }
+                            item = UITabBarItem(title: title, image: image, selectedImage: image)
                         }
                     } else {
                         var image: UIImage? = nil
