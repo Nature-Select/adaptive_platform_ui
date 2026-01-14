@@ -700,6 +700,9 @@ class _MinimizableTabBarState extends State<_MinimizableTabBar>
   late Animation<double> _animation;
   bool _isMinimized = false;
 
+  /// 是否忽略滚动事件，直到新的滚动开始
+  bool _ignoreScrollUntilNewScroll = false;
+
   @override
   void initState() {
     super.initState();
@@ -719,6 +722,18 @@ class _MinimizableTabBarState extends State<_MinimizableTabBar>
   // Called from parent's NotificationListener
   void handleScrollNotification(ScrollNotification notification) {
     if (widget.minimizeBehavior == TabBarMinimizeBehavior.never) {
+      return;
+    }
+
+    // 检测新滚动开始（用户手指触摸屏幕开始滚动）
+    if (notification is ScrollStartNotification) {
+      // 新滚动开始，重新响应滚动事件
+      _ignoreScrollUntilNewScroll = false;
+      return;
+    }
+
+    // 如果正在忽略滚动事件（切换 tab 后的惯性滚动），直接返回
+    if (_ignoreScrollUntilNewScroll) {
       return;
     }
 
@@ -773,6 +788,20 @@ class _MinimizableTabBarState extends State<_MinimizableTabBar>
     }
   }
 
+  /// 强制展开 tab bar，不管当前状态
+  /// 用于点击 tab 时确保展开
+  void _forceExpand() {
+    if (mounted) {
+      _isMinimized = false;
+      // 忽略后续滚动事件，直到新的滚动开始（防止惯性滚动触发最小化）
+      _ignoreScrollUntilNewScroll = true;
+      // 如果正在动画中或已经最小化，都执行 reverse
+      if (_controller.value > 0) {
+        _controller.reverse();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -793,7 +822,11 @@ class _MinimizableTabBarState extends State<_MinimizableTabBar>
       child: IOS26NativeTabBar(
         destinations: widget.destinations,
         selectedIndex: widget.selectedIndex,
-        onTap: widget.onTap,
+        onTap: (index) {
+          // 点击 tab 时强制展开 tab bar，不管当前动画状态
+          _forceExpand();
+          widget.onTap(index);
+        },
         tint:
             widget.selectedItemColor ?? CupertinoTheme.of(context).primaryColor,
         unselectedItemTint: widget.unselectedItemColor,
