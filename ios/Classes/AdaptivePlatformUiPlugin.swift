@@ -11,6 +11,11 @@ public class AdaptivePlatformUiPlugin: NSObject, FlutterPlugin {
             iOS26NativeTabBarManager.shared.setup(messenger: registrar.messenger())
         }
 
+        // Initialize Elys Native Tab Bar Manager (with center floating button)
+        if #available(iOS 26.0, *) {
+            ElysNativeTabBarManager.shared.setup(messenger: registrar.messenger())
+        }
+
         // Register iOS 26 Button platform view factory
         let ios26ButtonFactory = iOS26ButtonViewFactory(messenger: registrar.messenger())
         registrar.register(
@@ -73,5 +78,14 @@ public class AdaptivePlatformUiPlugin: NSObject, FlutterPlugin {
             ios26BlurViewFactory,
             withId: "adaptive_platform_ui/ios26_blur_view"
         )
+
+        // Register Elys Tab Bar platform view factory (with center floating button)
+        if #available(iOS 26.0, *) {
+            let elysTabBarFactory = ElysTabBarViewFactory(messenger: registrar.messenger(), registrar: registrar)
+            registrar.register(
+                elysTabBarFactory,
+                withId: "elys_platform_ui/tab_bar"
+            )
+        }
     }
 }
