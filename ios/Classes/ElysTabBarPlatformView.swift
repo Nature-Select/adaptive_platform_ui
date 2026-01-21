@@ -164,8 +164,8 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             items.append(createTabItem(index: i, icon: icons[i], selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
         }
 
-        // Add center spacer with transparent image (80pt wide for center button + padding)
-        let spacerImage = createSpacerImage(width: 80)
+        // Add center spacer with transparent image (matches center button touch area)
+        let spacerImage = createSpacerImage(width: 48)
         let spacerItem = UITabBarItem(title: "", image: spacerImage, selectedImage: nil)
         spacerItem.tag = -999  // Special tag for spacer
         spacerItem.isEnabled = false  // Disable selection for spacer
@@ -425,15 +425,18 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             let badgeCounts = badgeData.map { $0?.intValue }
             self.currentBadgeCounts = badgeCounts
 
+            // 用 tag 来匹配 badgeCounts，因为 items 数组中有额外的 spacer
             if let bar = tabBar, let items = bar.items {
-                for (index, item) in items.enumerated() {
-                    if index < badgeCounts.count {
-                        let count = badgeCounts[index]
-                        if let count = count, count > 0 {
-                            item.badgeValue = count > 99 ? "99+" : String(count)
-                        } else {
-                            item.badgeValue = nil
-                        }
+                for item in items {
+                    let tag = item.tag
+                    // 跳过 spacer (tag < 0)
+                    guard tag >= 0, tag < badgeCounts.count else { continue }
+                    
+                    let count = badgeCounts[tag]
+                    if let count = count, count > 0 {
+                        item.badgeValue = count > 99 ? "99+" : String(count)
+                    } else {
+                        item.badgeValue = nil
                     }
                 }
             }
