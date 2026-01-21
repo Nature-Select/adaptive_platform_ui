@@ -8,7 +8,43 @@ class ElysCustomTabBar: UITabBar {
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         lastTouchLocation = touches.first?.location(in: self)
+        print("[DEBUG] ElysCustomTabBar touchesBegan: location = \(String(describing: lastTouchLocation)), bounds = \(bounds)")
         super.touchesBegan(touches, with: event)
+    }
+    
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let result = super.hitTest(point, with: event)
+        print("[DEBUG] ElysCustomTabBar hitTest: point = \(point), result = \(String(describing: result))")
+        return result
+    }
+}
+
+/// Touch blocker view that intercepts touches and forwards to center button
+@available(iOS 26.0, *)
+class CenterTouchBlocker: UIView {
+    weak var targetButton: UIButton?
+    var onTap: (() -> Void)?
+    
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let isInside = self.point(inside: point, with: event)
+        print("[DEBUG] CenterTouchBlocker hitTest: point = \(point), bounds = \(bounds), isInside = \(isInside)")
+        // Always intercept touches within bounds
+        if isInside {
+            return self
+        }
+        return nil
+    }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        print("[DEBUG] CenterTouchBlocker touchesBegan")
+        super.touchesBegan(touches, with: event)
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        print("[DEBUG] CenterTouchBlocker touchesEnded - calling onTap")
+        super.touchesEnded(touches, with: event)
+        // Trigger the button action when touch ends
+        onTap?()
     }
 }
 
@@ -92,6 +128,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         // Setup appearance
         setupTabBarAppearance(bar, backgroundColor: backgroundColor)
+        
+        // Configure item positioning - use centered for more control
+        bar.itemPositioning = .centered
+        bar.itemWidth = 60  // Fixed width for each tab item
+        bar.itemSpacing = 8  // Spacing between items
 
         // Build tab bar items
         let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
@@ -155,28 +196,28 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private func buildItems(icons: [String], selectedIcons: [String], badgeCounts: [Int?]) -> [UITabBarItem] {
         var items: [UITabBarItem] = []
 
-        // Calculate split point
-        let splitIndex = (icons.count + 1) / 2
+        print("[DEBUG] buildItems: icons.count = \(icons.count), icons = \(icons)")
 
-        // Add left-side items
-        for i in 0..<min(splitIndex, icons.count) {
-            let selectedIcon = i < selectedIcons.count ? selectedIcons[i] : icons[i]
-            items.append(createTabItem(index: i, icon: icons[i], selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
+        for i in 0..<icons.count {
+            let icon = icons[i]
+            
+            // Empty icon from Flutter = spacer position (for center button)
+            if icon.isEmpty {
+                let spacerImage = createSpacerImage(width: 40)
+                let spacerItem = UITabBarItem(title: "", image: spacerImage, selectedImage: nil)
+                spacerItem.tag = -999  // Special tag for spacer
+                spacerItem.isEnabled = false
+                items.append(spacerItem)
+                print("[DEBUG] buildItems: added spacer at index \(i)")
+                continue
+            }
+            
+            let selectedIcon = i < selectedIcons.count ? selectedIcons[i] : icon
+            items.append(createTabItem(index: i, icon: icon, selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
+            print("[DEBUG] buildItems: added item at index \(i), tag = \(i)")
         }
 
-        // Add center spacer with transparent image (matches center button touch area)
-        let spacerImage = createSpacerImage(width: 48)
-        let spacerItem = UITabBarItem(title: "", image: spacerImage, selectedImage: nil)
-        spacerItem.tag = -999  // Special tag for spacer
-        spacerItem.isEnabled = false  // Disable selection for spacer
-        items.append(spacerItem)
-
-        // Add right-side items
-        for i in splitIndex..<icons.count {
-            let selectedIcon = i < selectedIcons.count ? selectedIcons[i] : icons[i]
-            items.append(createTabItem(index: i, icon: icons[i], selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
-        }
-
+        print("[DEBUG] buildItems: total items = \(items.count)")
         return items
     }
 
@@ -248,49 +289,55 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private func setupCenterButton(config: CenterButtonConfig) {
         guard let tabBar = tabBar else { return }
 
-        // Create touch blocking view (covers spacer area, blocks touches from reaching tabBar)
-        let touchBlocker = UIView()
-        touchBlocker.translatesAutoresizingMaskIntoConstraints = false
-        touchBlocker.backgroundColor = .clear
-        touchBlocker.isUserInteractionEnabled = true  // Intercept touches
-        tabBar.addSubview(touchBlocker)
-
-        // Create center button (no external styling, just the image)
-        let button = UIButton(type: .custom)
-        button.translatesAutoresizingMaskIntoConstraints = false
-
-        // Load image from Flutter asset as original (not template) and resize to 40x40
-        if let originalImage = loadFlutterAsset(config.icon, asTemplate: false) {
-            let resizedImage = resizeImage(originalImage, to: CGSize(width: 40, height: 40))
-            button.setImage(resizedImage, for: .normal)
+        // Touch blocker size (covers the entire center area to block tab selection)
+        let blockerSize: CGFloat = 80  // Wider than button to ensure full coverage
+        let imageSize: CGFloat = 40
+        
+        // Create touch blocker that sits on top of tab bar items
+        let blocker = CenterTouchBlocker()
+        blocker.translatesAutoresizingMaskIntoConstraints = false
+        blocker.backgroundColor = .clear  // Debug: change to .red.withAlphaComponent(0.3) to see area
+        blocker.onTap = { [weak self] in
+            print("[DEBUG] CenterTouchBlocker tapped!")
+            self?.centerButtonTapped()
         }
 
-        button.addTarget(self, action: #selector(centerButtonTapped), for: .touchUpInside)
+        // Create center button (visual only, touch handled by blocker)
+        let button = UIButton(type: .custom)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.isUserInteractionEnabled = false  // Disable - blocker handles touches
 
-        // Add to tabBar, positioned at center
-        tabBar.addSubview(button)
+        // Load image from Flutter asset as original (not template) and resize
+        if let originalImage = loadFlutterAsset(config.icon, asTemplate: false) {
+            let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize))
+            button.setImage(resizedImage, for: .normal)
+        }
+        
+        button.imageView?.contentMode = .center
         self.centerButton = button
 
-        // Touch blocker and button
-        let blockerSize: CGFloat = 48
-        let buttonSize: CGFloat = 40
+        // Add blocker first, then button on top
+        tabBar.addSubview(blocker)
+        tabBar.addSubview(button)
         
         // Use centerY with adjustable offset (positive = move down)
-        let verticalOffset: CGFloat = 6  // Adjust this value if needed
+        let verticalOffset: CGFloat = 6
         
         NSLayoutConstraint.activate([
-            // Touch blocker
-            touchBlocker.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            touchBlocker.centerYAnchor.constraint(equalTo: tabBar.topAnchor, constant: 25 + verticalOffset),
-            touchBlocker.widthAnchor.constraint(equalToConstant: blockerSize),
-            touchBlocker.heightAnchor.constraint(equalToConstant: blockerSize),
-
-            // Center button
+            // Touch blocker - wider area to block all center touches
+            blocker.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
+            blocker.topAnchor.constraint(equalTo: tabBar.topAnchor),
+            blocker.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            blocker.widthAnchor.constraint(equalToConstant: blockerSize),
+            
+            // Center button (visual) - positioned in center
             button.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
             button.centerYAnchor.constraint(equalTo: tabBar.topAnchor, constant: 25 + verticalOffset),
-            button.widthAnchor.constraint(equalToConstant: buttonSize),
-            button.heightAnchor.constraint(equalToConstant: buttonSize)
+            button.widthAnchor.constraint(equalToConstant: imageSize),
+            button.heightAnchor.constraint(equalToConstant: imageSize)
         ])
+        
+        print("[DEBUG] setupCenterButton: blocker size = \(blockerSize), tabBar bounds = \(tabBar.bounds)")
     }
 
     @objc private func centerButtonTapped() {
@@ -309,6 +356,17 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     // MARK: - UITabBarDelegate
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        print("[DEBUG] tabBar didSelect: tag = \(item.tag), title = \(item.title ?? "nil")")
+        print("[DEBUG] lastTouchLocation = \(String(describing: self.tabBar?.lastTouchLocation))")
+        print("[DEBUG] tabBar bounds = \(tabBar.bounds), center = \(tabBar.bounds.width / 2)")
+        
+        // Print all items info
+        if let items = tabBar.items {
+            for (index, i) in items.enumerated() {
+                print("[DEBUG] item[\(index)]: tag = \(i.tag), isEnabled = \(i.isEnabled)")
+            }
+        }
+        
         // If spacer is selected, determine direction based on touch location
         if item.tag == -999 {
             // Use async to ensure restoration happens after UITabBar's internal state update
