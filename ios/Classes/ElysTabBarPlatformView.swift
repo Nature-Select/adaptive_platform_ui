@@ -97,8 +97,9 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
         bar.items = items
 
-        if selectedIndex >= 0, selectedIndex < items.count {
-            bar.selectedItem = items[selectedIndex]
+        // 用 tag 查找对应的 item，因为 items 数组中有额外的 spacer
+        if let targetItem = items.first(where: { $0.tag == selectedIndex }) {
+            bar.selectedItem = targetItem
         }
 
         container.addSubview(bar)
@@ -390,10 +391,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
                 bar.items = items
 
+                // 用 tag 查找对应的 item
                 let selectedIndex = (args["selectedIndex"] as? NSNumber)?.intValue ?? 0
-                if selectedIndex >= 0, selectedIndex < items.count, items[selectedIndex].tag >= 0 {
-                    bar.selectedItem = items[selectedIndex]
-                    lastValidSelectedIndex = selectedIndex
+                if let targetItem = items.first(where: { $0.tag == selectedIndex }) {
+                    bar.selectedItem = targetItem
+                    lastValidSelectedIndex = targetItem.tag
                 }
             }
             result(nil)
@@ -405,9 +407,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 return
             }
 
-            if let bar = tabBar, let items = bar.items, idx >= 0, idx < items.count, items[idx].tag >= 0 {
-                bar.selectedItem = items[idx]
-                lastValidSelectedIndex = idx
+            // 用 tag 查找对应的 item，因为 items 数组中有额外的 spacer
+            if let bar = tabBar, let items = bar.items,
+               let targetItem = items.first(where: { $0.tag == idx }) {
+                bar.selectedItem = targetItem
+                lastValidSelectedIndex = targetItem.tag
             }
             result(nil)
 
