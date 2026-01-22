@@ -8,13 +8,11 @@ class ElysCustomTabBar: UITabBar {
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         lastTouchLocation = touches.first?.location(in: self)
-        print("[DEBUG] ElysCustomTabBar touchesBegan: location = \(String(describing: lastTouchLocation)), bounds = \(bounds)")
         super.touchesBegan(touches, with: event)
     }
     
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let result = super.hitTest(point, with: event)
-        print("[DEBUG] ElysCustomTabBar hitTest: point = \(point), result = \(String(describing: result))")
         return result
     }
 }
@@ -27,7 +25,6 @@ class CenterTouchBlocker: UIView {
     
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let isInside = self.point(inside: point, with: event)
-        print("[DEBUG] CenterTouchBlocker hitTest: point = \(point), bounds = \(bounds), isInside = \(isInside)")
         // Always intercept touches within bounds
         if isInside {
             return self
@@ -36,12 +33,10 @@ class CenterTouchBlocker: UIView {
     }
     
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        print("[DEBUG] CenterTouchBlocker touchesBegan")
         super.touchesBegan(touches, with: event)
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        print("[DEBUG] CenterTouchBlocker touchesEnded - calling onTap")
         super.touchesEnded(touches, with: event)
         // Trigger the button action when touch ends
         onTap?()
@@ -128,11 +123,6 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         // Setup appearance
         setupTabBarAppearance(bar, backgroundColor: backgroundColor)
-        
-        // Configure item positioning - use centered for more control
-        bar.itemPositioning = .centered
-        bar.itemWidth = 60  // Fixed width for each tab item
-        bar.itemSpacing = 8  // Spacing between items
 
         // Build tab bar items
         let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
@@ -169,24 +159,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     }
 
     private func setupTabBarAppearance(_ bar: UITabBar, backgroundColor: UIColor?) {
-        let appearance = UITabBarAppearance()
-
-        // Glass effect
-        appearance.configureWithDefaultBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-        appearance.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.8)
-        appearance.shadowColor = .clear
-
-        // Hide title
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
-        appearance.inlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
-        appearance.inlineLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
-        appearance.compactInlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.clear]
-        appearance.compactInlineLayoutAppearance.selected.titleTextAttributes = [.foregroundColor: UIColor.clear]
-
-        bar.standardAppearance = appearance
-        bar.scrollEdgeAppearance = appearance
+        // iOS 26+: Use transparent background, let system handle Liquid Glass
+        bar.isTranslucent = true
+        bar.backgroundImage = UIImage()
+        bar.shadowImage = UIImage()
+        bar.backgroundColor = .clear
 
         if let bg = backgroundColor {
             bar.barTintColor = bg
@@ -195,8 +172,6 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
     private func buildItems(icons: [String], selectedIcons: [String], badgeCounts: [Int?]) -> [UITabBarItem] {
         var items: [UITabBarItem] = []
-
-        print("[DEBUG] buildItems: icons.count = \(icons.count), icons = \(icons)")
 
         for i in 0..<icons.count {
             let icon = icons[i]
@@ -208,32 +183,39 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 spacerItem.tag = -999  // Special tag for spacer
                 spacerItem.isEnabled = false
                 items.append(spacerItem)
-                print("[DEBUG] buildItems: added spacer at index \(i)")
                 continue
             }
             
             let selectedIcon = i < selectedIcons.count ? selectedIcons[i] : icon
             items.append(createTabItem(index: i, icon: icon, selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
-            print("[DEBUG] buildItems: added item at index \(i), tag = \(i)")
         }
 
-        print("[DEBUG] buildItems: total items = \(items.count)")
         return items
     }
 
     private func createTabItem(index: Int, icon: String, selectedIcon: String, badgeCount: Int?) -> UITabBarItem {
         var image: UIImage?
         var selectedImage: UIImage?
+        let iconSize = CGSize(width: 26, height: 26)
 
         if !icon.isEmpty {
-            if let originalImage = loadFlutterAsset(icon) {
-                image = resizeImage(originalImage, to: CGSize(width: 26, height: 26))
+            // Try to load as animated image first (APNG/GIF)
+            if let data = loadFlutterAssetData(icon) {
+                image = loadImageFromData(data, size: iconSize)
+            }
+            // Fallback to static image
+            if image == nil, let originalImage = loadFlutterAsset(icon) {
+                image = resizeImage(originalImage, to: iconSize)
             }
         }
 
         if !selectedIcon.isEmpty {
-            if let originalImage = loadFlutterAsset(selectedIcon) {
-                selectedImage = resizeImage(originalImage, to: CGSize(width: 26, height: 26))
+            // Try animated first for selected icon too
+            if let data = loadFlutterAssetData(selectedIcon) {
+                selectedImage = loadImageFromData(data, size: iconSize)
+            }
+            if selectedImage == nil, let originalImage = loadFlutterAsset(selectedIcon) {
+                selectedImage = resizeImage(originalImage, to: iconSize)
             }
         }
 
@@ -286,6 +268,96 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         return image.withRenderingMode(.alwaysOriginal)
     }
 
+    // MARK: - Animated Icon Support
+    
+    /// Load Flutter asset as Data (for checking animation)
+    private func loadFlutterAssetData(_ assetPath: String) -> Data? {
+        let key = registrar.lookupKey(forAsset: assetPath)
+        if let path = Bundle.main.path(forResource: key, ofType: nil) {
+            return try? Data(contentsOf: URL(fileURLWithPath: path))
+        }
+        let directPath = Bundle.main.bundleURL
+            .appendingPathComponent("Frameworks/App.framework/flutter_assets")
+            .appendingPathComponent(assetPath)
+            .path
+        if FileManager.default.fileExists(atPath: directPath) {
+            return try? Data(contentsOf: URL(fileURLWithPath: directPath))
+        }
+        return nil
+    }
+    
+    /// Check if image data contains animation (APNG/GIF)
+    private func isAnimatedImage(data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return false
+        }
+        let frameCount = CGImageSourceGetCount(source)
+        return frameCount > 1
+    }
+    
+    /// Load image from data, supporting both static and animated images (APNG/GIF)
+    /// Returns a UIImage that can be directly set on UITabBarItem.image
+    private func loadImageFromData(_ data: Data, size: CGSize) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+        
+        let frameCount = CGImageSourceGetCount(source)
+        
+        if frameCount <= 1 {
+            // Static image
+            if let image = UIImage(data: data) {
+                return resizeImage(image, to: size)
+            }
+            return nil
+        }
+        
+        // Animated image - extract frames and create UIImage.animatedImage
+        var frames: [UIImage] = []
+        var totalDuration: TimeInterval = 0
+        
+        for i in 0..<frameCount {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) else { continue }
+            
+            let frameImage = UIImage(cgImage: cgImage)
+            let resizedFrame = resizeImage(frameImage, to: size)
+            frames.append(resizedFrame)
+            
+            // Get frame duration
+            var frameDuration: TimeInterval = 0.1  // Default 100ms
+            
+            if let properties = CGImageSourceCopyPropertiesAtIndex(source, i, nil) as? [CFString: Any] {
+                // Try APNG duration
+                if let pngProps = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any] {
+                    if let delay = pngProps[kCGImagePropertyAPNGDelayTime] as? TimeInterval {
+                        frameDuration = delay
+                    } else if let delay = pngProps[kCGImagePropertyAPNGUnclampedDelayTime] as? TimeInterval {
+                        frameDuration = delay
+                    }
+                }
+                // Try GIF duration
+                else if let gifProps = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] {
+                    if let delay = gifProps[kCGImagePropertyGIFDelayTime] as? TimeInterval {
+                        frameDuration = delay
+                    } else if let delay = gifProps[kCGImagePropertyGIFUnclampedDelayTime] as? TimeInterval {
+                        frameDuration = delay
+                    }
+                }
+            }
+            
+            // Ensure minimum duration
+            if frameDuration < 0.01 {
+                frameDuration = 0.1
+            }
+            totalDuration += frameDuration
+        }
+        
+        guard !frames.isEmpty else { return nil }
+        
+        // Create animated UIImage - this can be set directly on UITabBarItem.image!
+        return UIImage.animatedImage(with: frames, duration: totalDuration)
+    }
+
     private func setupCenterButton(config: CenterButtonConfig) {
         guard let tabBar = tabBar else { return }
 
@@ -298,7 +370,6 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         blocker.translatesAutoresizingMaskIntoConstraints = false
         blocker.backgroundColor = .clear  // Debug: change to .red.withAlphaComponent(0.3) to see area
         blocker.onTap = { [weak self] in
-            print("[DEBUG] CenterTouchBlocker tapped!")
             self?.centerButtonTapped()
         }
 
@@ -336,8 +407,6 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             button.widthAnchor.constraint(equalToConstant: imageSize),
             button.heightAnchor.constraint(equalToConstant: imageSize)
         ])
-        
-        print("[DEBUG] setupCenterButton: blocker size = \(blockerSize), tabBar bounds = \(tabBar.bounds)")
     }
 
     @objc private func centerButtonTapped() {
@@ -356,17 +425,6 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     // MARK: - UITabBarDelegate
 
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        print("[DEBUG] tabBar didSelect: tag = \(item.tag), title = \(item.title ?? "nil")")
-        print("[DEBUG] lastTouchLocation = \(String(describing: self.tabBar?.lastTouchLocation))")
-        print("[DEBUG] tabBar bounds = \(tabBar.bounds), center = \(tabBar.bounds.width / 2)")
-        
-        // Print all items info
-        if let items = tabBar.items {
-            for (index, i) in items.enumerated() {
-                print("[DEBUG] item[\(index)]: tag = \(i.tag), isEnabled = \(i.isEnabled)")
-            }
-        }
-        
         // If spacer is selected, determine direction based on touch location
         if item.tag == -999 {
             // Use async to ensure restoration happens after UITabBar's internal state update
@@ -496,6 +554,67 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     } else {
                         item.badgeValue = nil
                     }
+                }
+            }
+            result(nil)
+
+        case "updateItemIcon":
+            guard let args = call.arguments as? [String: Any],
+                  let index = (args["index"] as? NSNumber)?.intValue else {
+                result(FlutterError(code: "bad_args", message: "Missing index", details: nil))
+                return
+            }
+
+            let icon = args["icon"] as? String
+            let selectedIcon = args["selectedIcon"] as? String
+            let iconSize = CGSize(width: 26, height: 26)
+
+            // Update stored icons
+            if let icon = icon, index < self.currentIcons.count {
+                self.currentIcons[index] = icon
+            }
+            if let selectedIcon = selectedIcon, index < self.currentSelectedIcons.count {
+                self.currentSelectedIcons[index] = selectedIcon
+            }
+
+            // Find and update the item with matching tag
+            if let bar = tabBar, let items = bar.items,
+               let targetItem = items.first(where: { $0.tag == index }) {
+                
+                // Handle icon update - supports both static and animated (APNG/GIF)
+                if let iconPath = icon, !iconPath.isEmpty {
+                    if let data = loadFlutterAssetData(iconPath),
+                       let loadedImage = loadImageFromData(data, size: iconSize) {
+                        targetItem.image = loadedImage
+                    } else if let originalImage = loadFlutterAsset(iconPath) {
+                        targetItem.image = resizeImage(originalImage, to: iconSize)
+                    }
+                }
+                
+                // Handle selected icon update - also supports animation
+                if let selectedIconPath = selectedIcon, !selectedIconPath.isEmpty {
+                    if let data = loadFlutterAssetData(selectedIconPath),
+                       let loadedImage = loadImageFromData(data, size: iconSize) {
+                        targetItem.selectedImage = loadedImage
+                    } else if let originalImage = loadFlutterAsset(selectedIconPath) {
+                        targetItem.selectedImage = resizeImage(originalImage, to: iconSize)
+                    }
+                }
+            }
+            result(nil)
+
+        case "updateCenterButton":
+            guard let args = call.arguments as? [String: Any] else {
+                result(FlutterError(code: "bad_args", message: "Missing args", details: nil))
+                return
+            }
+
+            if let icon = args["icon"] as? String,
+               let button = self.centerButton {
+                let imageSize: CGFloat = 40
+                if let originalImage = loadFlutterAsset(icon, asTemplate: false) {
+                    let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize))
+                    button.setImage(resizedImage, for: .normal)
                 }
             }
             result(nil)
