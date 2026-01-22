@@ -1,8 +1,10 @@
 import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+
 import '../adaptive_scaffold.dart';
 
 /// Elys Native iOS tab bar with center floating action button
@@ -78,6 +80,7 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
   double? _intrinsicHeight;
   List<String>? _lastLabels;
   List<String>? _lastIcons;
+  List<String>? _lastSelectedIcons;
   List<int?>? _lastBadgeCounts;
   ElysCenterButtonConfig? _lastCenterButtonConfig;
 
@@ -146,9 +149,7 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
         if (widget.backgroundColor != null)
           'backgroundColor': _colorToARGB(widget.backgroundColor!),
         if (widget.centerButtonConfig != null)
-          'centerButton': {
-            'icon': widget.centerButtonConfig!.icon,
-          },
+          'centerButton': {'icon': widget.centerButtonConfig!.icon},
       };
 
       final platformView = UiKitView(
@@ -267,9 +268,12 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
     }).toList();
     final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
 
-    if (_lastLabels?.join('|') != labels.join('|') ||
-        _lastIcons?.join('|') != icons.join('|') ||
-        _lastCenterButtonConfig != widget.centerButtonConfig) {
+    // Check if labels changed (requires full rebuild) or item count changed
+    final labelsChanged = _lastLabels?.join('|') != labels.join('|');
+    final itemCountChanged = _lastIcons?.length != icons.length;
+
+    if (labelsChanged || itemCountChanged) {
+      // Full rebuild needed
       await ch.invokeMethod('setItems', {
         'labels': labels,
         'icons': icons,
@@ -277,10 +281,43 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
         'badgeCounts': badgeCounts,
         'selectedIndex': widget.selectedIndex,
       });
-      _lastLabels = labels;
-      _lastIcons = icons;
-      _lastCenterButtonConfig = widget.centerButtonConfig;
+      _lastLabels = List.from(labels);
+      _lastIcons = List.from(icons);
+      _lastSelectedIcons = List.from(selectedIcons);
+      _lastBadgeCounts = List.from(badgeCounts);
       _requestIntrinsicSize();
+    } else {
+      // Check for individual icon changes - update only changed icons
+      for (int i = 0; i < icons.length; i++) {
+        final iconChanged =
+            _lastIcons != null &&
+            i < _lastIcons!.length &&
+            _lastIcons![i] != icons[i];
+        final selectedIconChanged =
+            _lastSelectedIcons != null &&
+            i < _lastSelectedIcons!.length &&
+            _lastSelectedIcons![i] != selectedIcons[i];
+
+        if (iconChanged || selectedIconChanged) {
+          await ch.invokeMethod('updateItemIcon', {
+            'index': i,
+            if (iconChanged) 'icon': icons[i],
+            if (selectedIconChanged) 'selectedIcon': selectedIcons[i],
+          });
+        }
+      }
+      _lastIcons = List.from(icons);
+      _lastSelectedIcons = List.from(selectedIcons);
+    }
+
+    // Center button update
+    if (_lastCenterButtonConfig?.icon != widget.centerButtonConfig?.icon) {
+      if (widget.centerButtonConfig != null) {
+        await ch.invokeMethod('updateCenterButton', {
+          'icon': widget.centerButtonConfig!.icon,
+        });
+      }
+      _lastCenterButtonConfig = widget.centerButtonConfig;
     }
 
     // Badge counts update
@@ -291,7 +328,7 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
       await ch.invokeMethod('setBadgeCounts', {
         'badgeCounts': currentBadgeCounts,
       });
-      _lastBadgeCounts = currentBadgeCounts;
+      _lastBadgeCounts = List.from(currentBadgeCounts);
     }
   }
 
@@ -310,6 +347,11 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
     _lastIcons = widget.destinations.map((e) {
       final icon = e.icon;
       if (icon is String) return icon;
+      return '';
+    }).toList();
+    _lastSelectedIcons = widget.destinations.map((e) {
+      final selectedIcon = e.selectedIcon ?? e.icon;
+      if (selectedIcon is String) return selectedIcon;
       return '';
     }).toList();
     _lastBadgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
