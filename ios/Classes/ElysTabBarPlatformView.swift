@@ -164,10 +164,12 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         bar.backgroundImage = UIImage()
         bar.shadowImage = UIImage()
         bar.backgroundColor = .clear
-
-        if let bg = backgroundColor {
-            bar.barTintColor = bg
-        }
+        
+        // IMPORTANT: Do NOT set barTintColor on iOS 26+ as it interferes with Liquid Glass effect
+        // barTintColor adds an opaque layer that makes the tab bar appear white/less transparent
+        
+        // Set theme color for selected items (#1F1F25)
+        bar.tintColor = UIColor(red: 0x1F/255.0, green: 0x1F/255.0, blue: 0x25/255.0, alpha: 1.0)
     }
 
     private func buildItems(icons: [String], selectedIcons: [String], badgeCounts: [Int?]) -> [UITabBarItem] {
@@ -229,12 +231,13 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         return item
     }
 
-    private func resizeImage(_ image: UIImage, to size: CGSize) -> UIImage {
+    private func resizeImage(_ image: UIImage, to size: CGSize, asTemplate: Bool = true) -> UIImage {
         UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
         image.draw(in: CGRect(origin: .zero, size: size))
         let resized = UIGraphicsGetImageFromCurrentImageContext() ?? image
         UIGraphicsEndImageContext()
-        return resized.withRenderingMode(.alwaysOriginal)
+        // Use template mode for better Liquid Glass effect on iOS 26+
+        return resized.withRenderingMode(asTemplate ? .alwaysTemplate : .alwaysOriginal)
     }
 
     private func loadFlutterAsset(_ assetPath: String, asTemplate: Bool = true) -> UIImage? {
@@ -297,7 +300,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     
     /// Load image from data, supporting both static and animated images (APNG/GIF)
     /// Returns a UIImage that can be directly set on UITabBarItem.image
-    private func loadImageFromData(_ data: Data, size: CGSize) -> UIImage? {
+    private func loadImageFromData(_ data: Data, size: CGSize, asTemplate: Bool = true) -> UIImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             return nil
         }
@@ -307,7 +310,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         if frameCount <= 1 {
             // Static image
             if let image = UIImage(data: data) {
-                return resizeImage(image, to: size)
+                return resizeImage(image, to: size, asTemplate: asTemplate)
             }
             return nil
         }
@@ -320,7 +323,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             guard let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil) else { continue }
             
             let frameImage = UIImage(cgImage: cgImage)
-            let resizedFrame = resizeImage(frameImage, to: size)
+            let resizedFrame = resizeImage(frameImage, to: size, asTemplate: asTemplate)
             frames.append(resizedFrame)
             
             // Get frame duration
@@ -378,9 +381,10 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         button.translatesAutoresizingMaskIntoConstraints = false
         button.isUserInteractionEnabled = false  // Disable - blocker handles touches
 
-        // Load image from Flutter asset as original (not template) and resize
+        // Load image from Flutter asset as original (not template) for center button
+        // Center button keeps original colors since it's typically a colored icon
         if let originalImage = loadFlutterAsset(config.icon, asTemplate: false) {
-            let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize))
+            let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize), asTemplate: false)
             button.setImage(resizedImage, for: .normal)
         }
         
@@ -613,7 +617,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                let button = self.centerButton {
                 let imageSize: CGFloat = 40
                 if let originalImage = loadFlutterAsset(icon, asTemplate: false) {
-                    let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize))
+                    let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize), asTemplate: false)
                     button.setImage(resizedImage, for: .normal)
                 }
             }
