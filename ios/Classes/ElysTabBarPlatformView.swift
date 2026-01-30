@@ -12,34 +12,42 @@ class ElysCustomTabBar: UITabBar {
     }
     
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let result = super.hitTest(point, with: event)
-        return result
+        return super.hitTest(point, with: event)
     }
 }
 
 /// Touch blocker view that intercepts touches and forwards to center button
 @available(iOS 26.0, *)
 class CenterTouchBlocker: UIView {
-    weak var targetButton: UIButton?
     var onTap: (() -> Void)?
     
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupGestureRecognizer()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupGestureRecognizer()
+    }
+    
+    private func setupGestureRecognizer() {
+        // Use gesture recognizer instead of touchesBegan/touchesEnded
+        // This works better with Flutter's PlatformView touch handling
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tap.cancelsTouchesInView = false
+        self.addGestureRecognizer(tap)
+    }
+    
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        onTap?()
+    }
+    
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let isInside = self.point(inside: point, with: event)
-        // Always intercept touches within bounds
-        if isInside {
+        if self.point(inside: point, with: event) {
             return self
         }
         return nil
-    }
-    
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        super.touchesBegan(touches, with: event)
-    }
-    
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        super.touchesEnded(touches, with: event)
-        // Trigger the button action when touch ends
-        onTap?()
     }
 }
 
@@ -369,6 +377,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let imageSize: CGFloat = 40
         
         // Create touch blocker that sits on top of tab bar items
+        // IMPORTANT: Add to container (not tabBar) to avoid Flutter PlatformView touch interception
         let blocker = CenterTouchBlocker()
         blocker.translatesAutoresizingMaskIntoConstraints = false
         blocker.backgroundColor = .clear  // Debug: change to .red.withAlphaComponent(0.3) to see area
@@ -391,15 +400,16 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         button.imageView?.contentMode = .center
         self.centerButton = button
 
-        // Add blocker first, then button on top
-        tabBar.addSubview(blocker)
-        tabBar.addSubview(button)
+        // Add to CONTAINER (not tabBar) - this is crucial for Flutter PlatformView touch handling
+        // Flutter intercepts touches on tabBar subviews, but container is the root view we return
+        container.addSubview(blocker)
+        container.addSubview(button)
         
         // Use centerY with adjustable offset (positive = move down)
         let verticalOffset: CGFloat = 6
         
         NSLayoutConstraint.activate([
-            // Touch blocker - wider area to block all center touches
+            // Touch blocker - positioned relative to tabBar but added to container
             blocker.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
             blocker.topAnchor.constraint(equalTo: tabBar.topAnchor),
             blocker.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
