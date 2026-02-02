@@ -374,7 +374,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         // Touch blocker size (covers the entire center area to block tab selection)
         let blockerSize: CGFloat = 80  // Wider than button to ensure full coverage
-        let imageSize: CGFloat = 40
+        let imageSize: CGFloat = 44
         
         // Create touch blocker that sits on top of tab bar items
         // IMPORTANT: Add to container (not tabBar) to avoid Flutter PlatformView touch interception
@@ -406,7 +406,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         container.addSubview(button)
         
         // Use centerY with adjustable offset (positive = move down)
-        let verticalOffset: CGFloat = 6
+        let verticalOffset: CGFloat = 4
         
         NSLayoutConstraint.activate([
             // Touch blocker - positioned relative to tabBar but added to container
@@ -625,7 +625,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
             if let icon = args["icon"] as? String,
                let button = self.centerButton {
-                let imageSize: CGFloat = 40
+                let imageSize: CGFloat = 44
                 if let originalImage = loadFlutterAsset(icon, asTemplate: false) {
                     let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize), asTemplate: false)
                     button.setImage(resizedImage, for: .normal)
