@@ -405,8 +405,8 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         container.addSubview(blocker)
         container.addSubview(button)
         
-        // Tab bar content area height (excluding safe area / home indicator)
-        let contentAreaHeight: CGFloat = 49
+        // Center button vertically at y = 31 (same as original 40px button with offset 6)
+        let buttonCenterY: CGFloat = 31
         
         NSLayoutConstraint.activate([
             // Touch blocker - positioned relative to tabBar but added to container
@@ -415,9 +415,9 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             blocker.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
             blocker.widthAnchor.constraint(equalToConstant: blockerSize),
             
-            // Center button (visual) - vertically centered in tab bar content area
+            // Center button (visual) - keep center position same as before
             button.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            button.centerYAnchor.constraint(equalTo: tabBar.topAnchor, constant: contentAreaHeight / 2),
+            button.centerYAnchor.constraint(equalTo: tabBar.topAnchor, constant: buttonCenterY),
             button.widthAnchor.constraint(equalToConstant: imageSize),
             button.heightAnchor.constraint(equalToConstant: imageSize)
         ])
