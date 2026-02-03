@@ -405,6 +405,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         container.addSubview(blocker)
         container.addSubview(button)
         
+        // iOS 26 Liquid Glass tab bar has larger content area than traditional 49pt
+        // Based on testing: tabBar height 83, safe area ~23, content area ~60
+        // Center position = 60 / 2 = 30
+        let buttonCenterY: CGFloat = 30
+        
         NSLayoutConstraint.activate([
             // Touch blocker - positioned relative to tabBar but added to container
             blocker.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
@@ -412,9 +417,9 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             blocker.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
             blocker.widthAnchor.constraint(equalToConstant: blockerSize),
             
-            // Center button (visual) - use safeAreaLayoutGuide for proper centering across all devices
+            // Center button (visual) - centered in tab bar content area (excluding safe area)
             button.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
-            button.centerYAnchor.constraint(equalTo: tabBar.safeAreaLayoutGuide.centerYAnchor),
+            button.centerYAnchor.constraint(equalTo: tabBar.topAnchor, constant: buttonCenterY),
             button.widthAnchor.constraint(equalToConstant: imageSize),
             button.heightAnchor.constraint(equalToConstant: imageSize)
         ])
