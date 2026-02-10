@@ -207,25 +207,51 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         var image: UIImage?
         var selectedImage: UIImage?
         let iconSize = CGSize(width: 26, height: 26)
+        let iconUseTemplate = shouldUseTemplateRendering(icon)
+        let selectedIconUseTemplate = shouldUseTemplateRendering(selectedIcon)
 
         if !icon.isEmpty {
             // Try to load as animated image first (APNG/GIF)
             if let data = loadFlutterAssetData(icon) {
-                image = loadImageFromData(data, size: iconSize)
+                image = loadImageFromData(
+                    data,
+                    size: iconSize,
+                    asTemplate: iconUseTemplate
+                )
             }
             // Fallback to static image
-            if image == nil, let originalImage = loadFlutterAsset(icon) {
-                image = resizeImage(originalImage, to: iconSize)
+            if image == nil,
+               let originalImage = loadFlutterAsset(
+                    icon,
+                    asTemplate: iconUseTemplate
+               ) {
+                image = resizeImage(
+                    originalImage,
+                    to: iconSize,
+                    asTemplate: iconUseTemplate
+                )
             }
         }
 
         if !selectedIcon.isEmpty {
             // Try animated first for selected icon too
             if let data = loadFlutterAssetData(selectedIcon) {
-                selectedImage = loadImageFromData(data, size: iconSize)
+                selectedImage = loadImageFromData(
+                    data,
+                    size: iconSize,
+                    asTemplate: selectedIconUseTemplate
+                )
             }
-            if selectedImage == nil, let originalImage = loadFlutterAsset(selectedIcon) {
-                selectedImage = resizeImage(originalImage, to: iconSize)
+            if selectedImage == nil,
+               let originalImage = loadFlutterAsset(
+                    selectedIcon,
+                    asTemplate: selectedIconUseTemplate
+               ) {
+                selectedImage = resizeImage(
+                    originalImage,
+                    to: iconSize,
+                    asTemplate: selectedIconUseTemplate
+                )
             }
         }
 
@@ -250,6 +276,10 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
     private func loadFlutterAsset(_ assetPath: String, asTemplate: Bool = true) -> UIImage? {
         let renderingMode: UIImage.RenderingMode = asTemplate ? .alwaysTemplate : .alwaysOriginal
+        // Method 0: Local file path (absolute path / file:// / ~/)
+        if let localPath = resolveLocalFilePath(assetPath) {
+            return UIImage(contentsOfFile: localPath)?.withRenderingMode(renderingMode)
+        }
         // Method 1: Use registrar lookup
         let key = registrar.lookupKey(forAsset: assetPath)
         if let path = Bundle.main.path(forResource: key, ofType: nil) {
@@ -283,6 +313,9 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     
     /// Load Flutter asset as Data (for checking animation)
     private func loadFlutterAssetData(_ assetPath: String) -> Data? {
+        if let localPath = resolveLocalFilePath(assetPath) {
+            return try? Data(contentsOf: URL(fileURLWithPath: localPath))
+        }
         let key = registrar.lookupKey(forAsset: assetPath)
         if let path = Bundle.main.path(forResource: key, ofType: nil) {
             return try? Data(contentsOf: URL(fileURLWithPath: path))
@@ -295,6 +328,62 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             return try? Data(contentsOf: URL(fileURLWithPath: directPath))
         }
         return nil
+    }
+
+    /// Resolve supported local paths:
+    /// - absolute file path: /var/mobile/.../avatar.png
+    /// - file URL: file:///var/mobile/.../avatar.png
+    /// - home relative: ~/Library/.../avatar.png
+    private func resolveLocalFilePath(_ rawPath: String) -> String? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        // file:// URI
+        if trimmed.hasPrefix("file://"),
+           let url = URL(string: trimmed) {
+            let filePath = url.path
+            if FileManager.default.fileExists(atPath: filePath) {
+                return filePath
+            }
+        }
+
+        // absolute path
+        if trimmed.hasPrefix("/"),
+           FileManager.default.fileExists(atPath: trimmed) {
+            return trimmed
+        }
+
+        // home relative path
+        if trimmed.hasPrefix("~/") {
+            let expandedPath = NSString(string: trimmed).expandingTildeInPath
+            if FileManager.default.fileExists(atPath: expandedPath) {
+                return expandedPath
+            }
+        }
+
+        // percent-encoded local path
+        if let decoded = trimmed.removingPercentEncoding,
+           decoded != trimmed {
+            if decoded.hasPrefix("file://"),
+               let url = URL(string: decoded) {
+                let filePath = url.path
+                if FileManager.default.fileExists(atPath: filePath) {
+                    return filePath
+                }
+            }
+
+            if decoded.hasPrefix("/"),
+               FileManager.default.fileExists(atPath: decoded) {
+                return decoded
+            }
+        }
+
+        return nil
+    }
+
+    /// Local user images should keep original color; bundled tab icons keep template rendering.
+    private func shouldUseTemplateRendering(_ path: String) -> Bool {
+        return resolveLocalFilePath(path) == nil
     }
     
     /// Check if image data contains animation (APNG/GIF)
@@ -599,21 +688,45 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 
                 // Handle icon update - supports both static and animated (APNG/GIF)
                 if let iconPath = icon, !iconPath.isEmpty {
+                    let useTemplate = shouldUseTemplateRendering(iconPath)
                     if let data = loadFlutterAssetData(iconPath),
-                       let loadedImage = loadImageFromData(data, size: iconSize) {
+                       let loadedImage = loadImageFromData(
+                            data,
+                            size: iconSize,
+                            asTemplate: useTemplate
+                       ) {
                         targetItem.image = loadedImage
-                    } else if let originalImage = loadFlutterAsset(iconPath) {
-                        targetItem.image = resizeImage(originalImage, to: iconSize)
+                    } else if let originalImage = loadFlutterAsset(
+                        iconPath,
+                        asTemplate: useTemplate
+                    ) {
+                        targetItem.image = resizeImage(
+                            originalImage,
+                            to: iconSize,
+                            asTemplate: useTemplate
+                        )
                     }
                 }
                 
                 // Handle selected icon update - also supports animation
                 if let selectedIconPath = selectedIcon, !selectedIconPath.isEmpty {
+                    let useTemplate = shouldUseTemplateRendering(selectedIconPath)
                     if let data = loadFlutterAssetData(selectedIconPath),
-                       let loadedImage = loadImageFromData(data, size: iconSize) {
+                       let loadedImage = loadImageFromData(
+                            data,
+                            size: iconSize,
+                            asTemplate: useTemplate
+                       ) {
                         targetItem.selectedImage = loadedImage
-                    } else if let originalImage = loadFlutterAsset(selectedIconPath) {
-                        targetItem.selectedImage = resizeImage(originalImage, to: iconSize)
+                    } else if let originalImage = loadFlutterAsset(
+                        selectedIconPath,
+                        asTemplate: useTemplate
+                    ) {
+                        targetItem.selectedImage = resizeImage(
+                            originalImage,
+                            to: iconSize,
+                            asTemplate: useTemplate
+                        )
                     }
                 }
             }
