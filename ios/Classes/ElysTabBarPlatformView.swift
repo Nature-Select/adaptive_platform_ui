@@ -206,7 +206,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private func createTabItem(index: Int, icon: String, selectedIcon: String, badgeCount: Int?) -> UITabBarItem {
         var image: UIImage?
         var selectedImage: UIImage?
-        let iconSize = CGSize(width: 40, height: 40)
+        let iconSize = CGSize(width: 36, height: 36)
         let iconUseTemplate = shouldUseTemplateRendering(icon)
         let selectedIconUseTemplate = shouldUseTemplateRendering(selectedIcon)
 
@@ -672,7 +672,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
             let icon = args["icon"] as? String
             let selectedIcon = args["selectedIcon"] as? String
-            let iconSize = CGSize(width: 40, height: 40)
+            let iconSize = CGSize(width: 32, height: 32)
 
             // Update stored icons
             if let icon = icon, index < self.currentIcons.count {
