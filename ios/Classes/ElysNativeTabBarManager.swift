@@ -111,12 +111,10 @@ class ElysNativeTabBarManager: NSObject {
             )
             tabVC.tabBarItem.tag = index
 
-            // Set badge value if provided
-            if let count = config.badgeCount, count > 0 {
-                tabVC.tabBarItem.badgeValue = count > 99 ? "99+" : String(count)
-            } else {
-                tabVC.tabBarItem.badgeValue = nil
-            }
+            NativeTabBarBadgeStyle.setBadgeCount(
+                config.badgeCount,
+                on: tabVC.tabBarItem
+            )
 
             viewControllers.append(tabVC)
         }
@@ -264,11 +262,10 @@ class ElysNativeTabBarManager: NSObject {
                 for (index, viewController) in viewControllers.enumerated() {
                     if index < badgeCounts.count {
                         let count = badgeCounts[index]
-                        if let count = count, count > 0 {
-                            viewController.tabBarItem.badgeValue = count > 99 ? "99+" : String(count)
-                        } else {
-                            viewController.tabBarItem.badgeValue = nil
-                        }
+                        NativeTabBarBadgeStyle.setBadgeCount(
+                            count,
+                            on: viewController.tabBarItem
+                        )
                     }
                 }
             }

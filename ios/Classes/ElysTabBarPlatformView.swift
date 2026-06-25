@@ -258,9 +258,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let item = UITabBarItem(title: "", image: image, selectedImage: selectedImage)
         item.tag = index
 
-        if let count = badgeCount, count > 0 {
-            item.badgeValue = count > 99 ? "99+" : String(count)
-        }
+        NativeTabBarBadgeStyle.setBadgeCount(badgeCount, on: item)
 
         return item
     }
@@ -653,12 +651,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     // 跳过 spacer (tag < 0)
                     guard tag >= 0, tag < badgeCounts.count else { continue }
                     
-                    let count = badgeCounts[tag]
-                    if let count = count, count > 0 {
-                        item.badgeValue = count > 99 ? "99+" : String(count)
-                    } else {
-                        item.badgeValue = nil
-                    }
+                    NativeTabBarBadgeStyle.setBadgeCount(badgeCounts[tag], on: item)
                 }
             }
             result(nil)

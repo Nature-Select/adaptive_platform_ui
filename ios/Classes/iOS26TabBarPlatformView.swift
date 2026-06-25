@@ -186,12 +186,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     item.tag = i
                 }
 
-                // Set badge value if provided
-                if let count = badgeCount, count > 0 {
-                    item.badgeValue = count > 99 ? "99+" : String(count)
-                } else {
-                    item.badgeValue = nil
-                }
+                NativeTabBarBadgeStyle.setBadgeCount(badgeCount, on: item)
 
                 items.append(item)
             }
@@ -335,12 +330,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                         item.tag = i
                     }
 
-                    // Set badge value if provided
-                    if let count = badgeCount, count > 0 {
-                        item.badgeValue = count > 99 ? "99+" : String(count)
-                    } else {
-                        item.badgeValue = nil
-                    }
+                    NativeTabBarBadgeStyle.setBadgeCount(badgeCount, on: item)
 
                     items.append(item)
                 }
@@ -438,12 +428,10 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             if let bar = self.tabBar, let items = bar.items {
                 for (index, item) in items.enumerated() {
                     if index < badgeCounts.count {
-                        let count = badgeCounts[index]
-                        if let count = count, count > 0 {
-                            item.badgeValue = count > 99 ? "99+" : String(count)
-                        } else {
-                            item.badgeValue = nil
-                        }
+                        NativeTabBarBadgeStyle.setBadgeCount(
+                            badgeCounts[index],
+                            on: item
+                        )
                     }
                 }
             }
@@ -505,10 +493,7 @@ class iOS26TabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                 item.tag = i
             }
 
-            // Set badge value if provided
-            if let count = badgeCount, count > 0 {
-                item.badgeValue = count > 99 ? "99+" : String(count)
-            }
+            NativeTabBarBadgeStyle.setBadgeCount(badgeCount, on: item)
 
             items.append(item)
         }
