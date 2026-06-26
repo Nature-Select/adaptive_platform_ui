@@ -60,6 +60,7 @@ class ElysCenterButtonConfig {
     required this.icon,
     this.backgroundColor,
     this.iconColor,
+    this.accessibilityIdentifier,
   });
 
   /// Asset path for the button icon (e.g. "assets/icons/plus.png")
@@ -70,6 +71,9 @@ class ElysCenterButtonConfig {
 
   /// Icon/tint color of the button (defaults to white)
   final Color? iconColor;
+
+  /// Native accessibility identifier for UI automation.
+  final String? accessibilityIdentifier;
 }
 
 class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
@@ -81,6 +85,7 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
   List<String>? _lastLabels;
   List<String>? _lastIcons;
   List<String>? _lastSelectedIcons;
+  List<String?>? _lastAccessibilityIdentifiers;
   List<int?>? _lastBadgeCounts;
   ElysCenterButtonConfig? _lastCenterButtonConfig;
 
@@ -138,18 +143,26 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
       }).toList();
 
       final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
+      final accessibilityIdentifiers = widget.destinations
+          .map((e) => e.accessibilityIdentifier)
+          .toList();
 
       final creationParams = <String, dynamic>{
         'labels': labels,
         'icons': icons,
         'selectedIcons': selectedIcons,
+        'accessibilityIdentifiers': accessibilityIdentifiers,
         'badgeCounts': badgeCounts,
         'selectedIndex': widget.selectedIndex,
         'isDark': _isDark,
         if (widget.backgroundColor != null)
           'backgroundColor': _colorToARGB(widget.backgroundColor!),
         if (widget.centerButtonConfig != null)
-          'centerButton': {'icon': widget.centerButtonConfig!.icon},
+          'centerButton': {
+            'icon': widget.centerButtonConfig!.icon,
+            'accessibilityIdentifier':
+                widget.centerButtonConfig!.accessibilityIdentifier,
+          },
       };
 
       final platformView = UiKitView(
@@ -266,24 +279,32 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
       if (selectedIcon is String) return selectedIcon;
       return '';
     }).toList();
+    final accessibilityIdentifiers = widget.destinations
+        .map((e) => e.accessibilityIdentifier)
+        .toList();
     final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
 
     // Check if labels changed (requires full rebuild) or item count changed
     final labelsChanged = _lastLabels?.join('|') != labels.join('|');
     final itemCountChanged = _lastIcons?.length != icons.length;
+    final identifiersChanged =
+        _lastAccessibilityIdentifiers?.join('|') !=
+        accessibilityIdentifiers.join('|');
 
-    if (labelsChanged || itemCountChanged) {
+    if (labelsChanged || itemCountChanged || identifiersChanged) {
       // Full rebuild needed
       await ch.invokeMethod('setItems', {
         'labels': labels,
         'icons': icons,
         'selectedIcons': selectedIcons,
+        'accessibilityIdentifiers': accessibilityIdentifiers,
         'badgeCounts': badgeCounts,
         'selectedIndex': widget.selectedIndex,
       });
       _lastLabels = List.from(labels);
       _lastIcons = List.from(icons);
       _lastSelectedIcons = List.from(selectedIcons);
+      _lastAccessibilityIdentifiers = List.from(accessibilityIdentifiers);
       _lastBadgeCounts = List.from(badgeCounts);
       _requestIntrinsicSize();
     } else {
@@ -311,10 +332,14 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
     }
 
     // Center button update
-    if (_lastCenterButtonConfig?.icon != widget.centerButtonConfig?.icon) {
+    if (_lastCenterButtonConfig?.icon != widget.centerButtonConfig?.icon ||
+        _lastCenterButtonConfig?.accessibilityIdentifier !=
+            widget.centerButtonConfig?.accessibilityIdentifier) {
       if (widget.centerButtonConfig != null) {
         await ch.invokeMethod('updateCenterButton', {
           'icon': widget.centerButtonConfig!.icon,
+          'accessibilityIdentifier':
+              widget.centerButtonConfig!.accessibilityIdentifier,
         });
       }
       _lastCenterButtonConfig = widget.centerButtonConfig;
@@ -354,6 +379,9 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
       if (selectedIcon is String) return selectedIcon;
       return '';
     }).toList();
+    _lastAccessibilityIdentifiers = widget.destinations
+        .map((e) => e.accessibilityIdentifier)
+        .toList();
     _lastBadgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
   }
 

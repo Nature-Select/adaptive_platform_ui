@@ -59,9 +59,11 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
     private let registrar: FlutterPluginRegistrar
     private var tabBar: ElysCustomTabBar?
     private var centerButton: UIButton?
+    private var centerTouchBlocker: CenterTouchBlocker?
 
     private var currentIcons: [String] = []
     private var currentSelectedIcons: [String] = []
+    private var currentAccessibilityIdentifiers: [String?] = []
     private var currentBadgeCounts: [Int?] = []
     private var centerButtonConfig: CenterButtonConfig?
     private var lastValidSelectedIndex: Int = 0
@@ -70,6 +72,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let icon: String
         let backgroundColor: UIColor?
         let iconColor: UIColor?
+        let accessibilityIdentifier: String?
     }
 
     init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger, registrar: FlutterPluginRegistrar) {
@@ -82,6 +85,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         var icons: [String] = []
         var selectedIcons: [String] = []
+        var accessibilityIdentifiers: [String?] = []
         var badgeCounts: [Int?] = []
         var selectedIndex: Int = 0
         var isDark: Bool = false
@@ -91,6 +95,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         if let dict = args as? [String: Any] {
             icons = (dict["icons"] as? [String]) ?? []
             selectedIcons = (dict["selectedIcons"] as? [String]) ?? []
+            accessibilityIdentifiers = (dict["accessibilityIdentifiers"] as? [String?]) ?? []
             if let badgeData = dict["badgeCounts"] as? [NSNumber?] {
                 badgeCounts = badgeData.map { $0?.intValue }
             }
@@ -119,7 +124,8 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             self.centerButtonConfig = CenterButtonConfig(
                 icon: icon,
                 backgroundColor: bgColor,
-                iconColor: iconColor
+                iconColor: iconColor,
+                accessibilityIdentifier: centerData["accessibilityIdentifier"] as? String
             )
         }
 
@@ -133,7 +139,12 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         setupTabBarAppearance(bar, backgroundColor: backgroundColor)
 
         // Build tab bar items
-        let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
+        let items = buildItems(
+            icons: icons,
+            selectedIcons: selectedIcons,
+            accessibilityIdentifiers: accessibilityIdentifiers,
+            badgeCounts: badgeCounts
+        )
         bar.items = items
 
         // 用 tag 查找对应的 item，因为 items 数组中有额外的 spacer
@@ -151,6 +162,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         self.currentIcons = icons
         self.currentSelectedIcons = selectedIcons
+        self.currentAccessibilityIdentifiers = accessibilityIdentifiers
         self.currentBadgeCounts = badgeCounts
         self.lastValidSelectedIndex = selectedIndex
 
@@ -180,7 +192,12 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         bar.tintColor = UIColor(red: 0x1F/255.0, green: 0x1F/255.0, blue: 0x25/255.0, alpha: 1.0)
     }
 
-    private func buildItems(icons: [String], selectedIcons: [String], badgeCounts: [Int?]) -> [UITabBarItem] {
+    private func buildItems(
+        icons: [String],
+        selectedIcons: [String],
+        accessibilityIdentifiers: [String?],
+        badgeCounts: [Int?]
+    ) -> [UITabBarItem] {
         var items: [UITabBarItem] = []
 
         for i in 0..<icons.count {
@@ -197,13 +214,25 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             }
             
             let selectedIcon = i < selectedIcons.count ? selectedIcons[i] : icon
-            items.append(createTabItem(index: i, icon: icon, selectedIcon: selectedIcon, badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil))
+            items.append(createTabItem(
+                index: i,
+                icon: icon,
+                selectedIcon: selectedIcon,
+                accessibilityIdentifier: i < accessibilityIdentifiers.count ? accessibilityIdentifiers[i] : nil,
+                badgeCount: i < badgeCounts.count ? badgeCounts[i] : nil
+            ))
         }
 
         return items
     }
 
-    private func createTabItem(index: Int, icon: String, selectedIcon: String, badgeCount: Int?) -> UITabBarItem {
+    private func createTabItem(
+        index: Int,
+        icon: String,
+        selectedIcon: String,
+        accessibilityIdentifier: String?,
+        badgeCount: Int?
+    ) -> UITabBarItem {
         var image: UIImage?
         var selectedImage: UIImage?
         let iconSize = CGSize(width: 36, height: 36)
@@ -257,6 +286,31 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
         let item = UITabBarItem(title: "", image: image, selectedImage: selectedImage)
         item.tag = index
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = "tab_icon_\(index)_native"
+        item.accessibilityIdentifier = accessibilityIdentifier ?? "tab_icon_\(index)_native"
 
         if let count = badgeCount, count > 0 {
             item.badgeValue = count > 99 ? "99+" : String(count)
@@ -470,6 +524,10 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let blocker = CenterTouchBlocker()
         blocker.translatesAutoresizingMaskIntoConstraints = false
         blocker.backgroundColor = .clear  // Debug: change to .red.withAlphaComponent(0.3) to see area
+        blocker.isAccessibilityElement = true
+        blocker.accessibilityIdentifier = "moments_publish_fab"
+        blocker.isAccessibilityElement = true
+        blocker.accessibilityIdentifier = config.accessibilityIdentifier ?? "moments_publish_fab"
         blocker.onTap = { [weak self] in
             self?.centerButtonTapped()
         }
@@ -478,6 +536,8 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         let button = UIButton(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.isUserInteractionEnabled = false  // Disable - blocker handles touches
+        button.accessibilityIdentifier = "moments_publish_fab"
+        button.accessibilityIdentifier = config.accessibilityIdentifier ?? "moments_publish_fab"
 
         // Load image from Flutter asset as original (not template) for center button
         // Center button keeps original colors since it's typically a colored icon
@@ -488,6 +548,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
         
         button.imageView?.contentMode = .center
         self.centerButton = button
+        self.centerTouchBlocker = blocker
 
         // Add to CONTAINER (not tabBar) - this is crucial for Flutter PlatformView touch handling
         // Flutter intercepts touches on tabBar subviews, but container is the root view we return
@@ -599,6 +660,7 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
             }
 
             let selectedIcons = (args["selectedIcons"] as? [String]) ?? []
+            let accessibilityIdentifiers = (args["accessibilityIdentifiers"] as? [String?]) ?? []
             var badgeCounts: [Int?] = []
             if let badgeData = args["badgeCounts"] as? [NSNumber?] {
                 badgeCounts = badgeData.map { $0?.intValue }
@@ -606,10 +668,16 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
             self.currentIcons = icons
             self.currentSelectedIcons = selectedIcons
+            self.currentAccessibilityIdentifiers = accessibilityIdentifiers
             self.currentBadgeCounts = badgeCounts
 
             if let bar = tabBar {
-                let items = buildItems(icons: icons, selectedIcons: selectedIcons, badgeCounts: badgeCounts)
+                let items = buildItems(
+                    icons: icons,
+                    selectedIcons: selectedIcons,
+                    accessibilityIdentifiers: accessibilityIdentifiers,
+                    badgeCounts: badgeCounts
+                )
                 bar.items = items
 
                 // 用 tag 查找对应的 item
@@ -745,6 +813,10 @@ class ElysTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
                     let resizedImage = resizeImage(originalImage, to: CGSize(width: imageSize, height: imageSize), asTemplate: false)
                     button.setImage(resizedImage, for: .normal)
                 }
+            }
+            if let identifier = args["accessibilityIdentifier"] as? String {
+                self.centerButton?.accessibilityIdentifier = identifier
+                self.centerTouchBlocker?.accessibilityIdentifier = identifier
             }
             result(nil)
 
