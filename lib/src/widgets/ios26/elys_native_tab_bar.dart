@@ -5,369 +5,279 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 
-import '../adaptive_scaffold.dart';
+import 'elys_native_tab_bar_models.dart';
+import 'elys_option_popover_models.dart';
 
-/// Elys Native iOS tab bar with center floating action button
-/// Uses native UITabBar platform view with a floating center button
+export 'elys_native_tab_bar_models.dart';
+export 'elys_option_popover_models.dart';
+
+part 'elys_native_tab_bar_controller.dart';
+part 'elys_native_tab_bar_surface.dart';
+
 class ElysNativeTabBar extends StatefulWidget {
   const ElysNativeTabBar({
     super.key,
-    required this.destinations,
-    required this.selectedIndex,
-    required this.onTap,
-    this.onCenterButtonPressed,
-    this.centerButtonConfig,
-    this.tint,
-    this.unselectedItemTint,
-    this.backgroundColor,
+    this.controller,
+    required this.leadingAction,
+    required this.tabs,
+    required this.selectedTabId,
+    required this.inputActive,
+    required this.inputConfig,
+    required this.onTabSelected,
+    this.onLeadingAction,
+    this.onInputModeChanged,
+    this.onInputTextChanged,
+    this.onInputSubmitted,
+    this.onInputSideAction,
+    this.onInputAccessoryAction,
+    this.onInputOptionTapped,
+    this.onInputOptionsPresentationChanged,
+    this.onKeyboardFrameChanged,
+    this.onLayoutChanged,
     this.height,
   });
 
-  /// Navigation destinations for the tab bar
-  final List<AdaptiveNavigationDestination> destinations;
-
-  /// Currently selected tab index
-  final int selectedIndex;
-
-  /// Callback when a tab is tapped
-  final ValueChanged<int> onTap;
-
-  /// Callback when center button is pressed
-  final VoidCallback? onCenterButtonPressed;
-
-  /// Configuration for the center floating button
-  final ElysCenterButtonConfig? centerButtonConfig;
-
-  /// Tint color for selected items
-  final Color? tint;
-
-  /// Tint color for unselected items
-  final Color? unselectedItemTint;
-
-  /// Background color for the tab bar
-  final Color? backgroundColor;
-
-  /// Height for the tab bar (includes floating button)
+  final ElysNativeTabBarController? controller;
+  final ElysBarAction leadingAction;
+  final List<ElysBarTab> tabs;
+  final String selectedTabId;
+  final bool inputActive;
+  final ElysInputConfig inputConfig;
+  final ValueChanged<String> onTabSelected;
+  final ValueChanged<ElysBarActionEvent>? onLeadingAction;
+  final ValueChanged<bool>? onInputModeChanged;
+  final ValueChanged<String>? onInputTextChanged;
+  final ValueChanged<String>? onInputSubmitted;
+  final ValueChanged<ElysBarActionEvent>? onInputSideAction;
+  final ValueChanged<ElysBarActionEvent>? onInputAccessoryAction;
+  final ValueChanged<ElysInputOptionEvent>? onInputOptionTapped;
+  final ValueChanged<bool>? onInputOptionsPresentationChanged;
+  final ValueChanged<ElysKeyboardFrameEvent>? onKeyboardFrameChanged;
+  final ValueChanged<ElysBarLayoutEvent>? onLayoutChanged;
   final double? height;
 
   @override
   State<ElysNativeTabBar> createState() => _ElysNativeTabBarState();
 }
 
-/// Configuration for the center floating action button
-class ElysCenterButtonConfig {
-  const ElysCenterButtonConfig({
-    required this.icon,
-    this.backgroundColor,
-    this.iconColor,
-  });
-
-  /// Asset path for the button icon (e.g. "assets/icons/plus.png")
-  final String icon;
-
-  /// Background color of the button (defaults to system blue)
-  final Color? backgroundColor;
-
-  /// Icon/tint color of the button (defaults to white)
-  final Color? iconColor;
-}
-
 class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
   MethodChannel? _channel;
-  int? _lastIndex;
-  int? _lastBg;
-  bool? _lastIsDark;
+  String? _lastSignature;
   double? _intrinsicHeight;
-  List<String>? _lastLabels;
-  List<String>? _lastIcons;
-  List<String>? _lastSelectedIcons;
-  List<int?>? _lastBadgeCounts;
-  ElysCenterButtonConfig? _lastCenterButtonConfig;
+  ElysBarLayoutEvent? _lastLayout;
+  late final _ElysNativeSurfaceCoordinator _surface;
 
   bool get _isDark =>
       MediaQuery.platformBrightnessOf(context) == Brightness.dark;
 
   @override
+  void initState() {
+    super.initState();
+    _surface = _ElysNativeSurfaceCoordinator(inputActive: widget.inputActive);
+    widget.controller?._attach(this);
+  }
+
+  @override
   void didUpdateWidget(covariant ElysNativeTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncPropsToNativeIfNeeded();
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
+    if (oldWidget.inputActive != widget.inputActive) {
+      _updateSurface(() => _surface.setInputActive(widget.inputActive));
+    }
+    _syncConfigIfNeeded();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _syncBrightnessIfNeeded();
-    _syncPropsToNativeIfNeeded();
+    _syncConfigIfNeeded();
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(this);
     _channel?.setMethodCallHandler(null);
     super.dispose();
-  }
-
-  int _colorToARGB(Color color) {
-    // Resolve CupertinoDynamicColor if needed
-    Color resolvedColor = color;
-    if (color is CupertinoDynamicColor) {
-      final brightness = MediaQuery.platformBrightnessOf(context);
-      resolvedColor = brightness == Brightness.dark
-          ? color.darkColor
-          : color.color;
-    }
-
-    return ((resolvedColor.a * 255.0).round() & 0xff) << 24 |
-        ((resolvedColor.r * 255.0).round() & 0xff) << 16 |
-        ((resolvedColor.g * 255.0).round() & 0xff) << 8 |
-        ((resolvedColor.b * 255.0).round() & 0xff);
   }
 
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb && Platform.isIOS) {
-      final labels = widget.destinations.map((e) => e.label).toList();
-      final icons = widget.destinations.map((e) {
-        final icon = e.icon;
-        if (icon is String) return icon;
-        return '';
-      }).toList();
-      final selectedIcons = widget.destinations.map((e) {
-        final selectedIcon = e.selectedIcon ?? e.icon;
-        if (selectedIcon is String) return selectedIcon;
-        return '';
-      }).toList();
-
-      final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
-
-      final creationParams = <String, dynamic>{
-        'labels': labels,
-        'icons': icons,
-        'selectedIcons': selectedIcons,
-        'badgeCounts': badgeCounts,
-        'selectedIndex': widget.selectedIndex,
-        'isDark': _isDark,
-        if (widget.backgroundColor != null)
-          'backgroundColor': _colorToARGB(widget.backgroundColor!),
-        if (widget.centerButtonConfig != null)
-          'centerButton': {'icon': widget.centerButtonConfig!.icon},
-      };
-
-      final platformView = UiKitView(
-        viewType: 'elys_platform_ui/tab_bar',
-        creationParams: creationParams,
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _onCreated,
-        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-        },
+      final barHeight = widget.height ?? _intrinsicHeight ?? 83;
+      final mediaHeight = MediaQuery.sizeOf(context).height;
+      final viewHeight = _surface.viewHeight(
+        fullHeight: mediaHeight,
+        barHeight: barHeight,
+        layout: _lastLayout,
       );
-
-      final h = widget.height ?? _intrinsicHeight ?? 78.0;
-      return SizedBox(height: h, child: platformView);
-    }
-
-    // Fallback for non-iOS
-    return SizedBox(
-      height: widget.height ?? 50,
-      child: Container(
-        color:
-            widget.backgroundColor ??
-            CupertinoColors.systemBackground.resolveFrom(context),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(
-            widget.destinations.length,
-            (index) => CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => widget.onTap(index),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.circle,
-                    color: index == widget.selectedIndex
-                        ? CupertinoColors.activeBlue
-                        : CupertinoColors.systemGrey,
-                  ),
-                  Text(
-                    widget.destinations[index].label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: index == widget.selectedIndex
-                          ? CupertinoColors.activeBlue
-                          : CupertinoColors.systemGrey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      return AnimatedContainer(
+        duration: _surface.animationDuration,
+        curve: Curves.easeOutCubic,
+        height: viewHeight,
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          height: viewHeight,
+          child: UiKitView(
+            viewType: 'elys_platform_ui/tab_bar',
+            creationParams: _config(),
+            creationParamsCodec: const StandardMessageCodec(),
+            onPlatformViewCreated: _onCreated,
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+            },
           ),
         ),
-      ),
-    );
+      );
+    }
+    return const SizedBox.shrink();
   }
 
+  Map<String, Object?> _config() => {
+    'leadingAction': widget.leadingAction.toMap(),
+    'tabs': widget.tabs.map((tab) => tab.toMap()).toList(),
+    'selectedTabId': widget.selectedTabId,
+    'inputActive': widget.inputActive,
+    'input': widget.inputConfig.toMap(),
+    'isDark': _isDark,
+  };
+
+  String _signature() => _config().toString();
+
   void _onCreated(int id) {
-    final ch = MethodChannel('elys_platform_ui/tab_bar_$id');
-    _channel = ch;
-    ch.setMethodCallHandler(_onMethodCall);
-    _lastIndex = widget.selectedIndex;
-    _lastBg = widget.backgroundColor != null
-        ? _colorToARGB(widget.backgroundColor!)
-        : null;
-    _lastIsDark = _isDark;
-    _lastCenterButtonConfig = widget.centerButtonConfig;
+    final channel = MethodChannel('elys_platform_ui/tab_bar_$id');
+    _channel = channel;
+    _lastSignature = _signature();
+    channel.setMethodCallHandler(_onMethodCall);
     _requestIntrinsicSize();
-    _cacheItems();
   }
 
   Future<dynamic> _onMethodCall(MethodCall call) async {
-    if (call.method == 'valueChanged') {
-      final args = call.arguments as Map?;
-      final idx = (args?['index'] as num?)?.toInt();
-      if (idx != null) {
-        widget.onTap(idx);
-        _lastIndex = idx;
-      }
-    } else if (call.method == 'onCenterButtonPressed') {
-      widget.onCenterButtonPressed?.call();
+    final args = call.arguments as Map?;
+    switch (call.method) {
+      case 'tabSelected':
+        final id = args?['id'] as String?;
+        if (id != null) widget.onTabSelected(id);
+        break;
+      case 'leadingActionTapped':
+        widget.onLeadingAction?.call(ElysBarActionEvent(id: '${args?['id']}'));
+        break;
+      case 'inputModeChanged':
+        final active = args?['active'] == true;
+        _updateSurface(() => _surface.setInputActive(active));
+        widget.onInputModeChanged?.call(active);
+        break;
+      case 'inputTextChanged':
+        widget.onInputTextChanged?.call((args?['text'] as String?) ?? '');
+        break;
+      case 'inputSubmitted':
+        widget.onInputSubmitted?.call((args?['text'] as String?) ?? '');
+        break;
+      case 'inputSideActionTapped':
+        widget.onInputSideAction?.call(
+          ElysBarActionEvent(
+            id: '${args?['id']}',
+            text: args?['text'] as String?,
+          ),
+        );
+        break;
+      case 'inputAccessoryTapped':
+        widget.onInputAccessoryAction?.call(
+          ElysBarActionEvent(
+            id: '${args?['id']}',
+            text: args?['text'] as String?,
+          ),
+        );
+        break;
+      case 'inputOptionTapped':
+        widget.onInputOptionTapped?.call(
+          ElysInputOptionEvent(
+            id: '${args?['id']}',
+            text: args?['text'] as String?,
+          ),
+        );
+        break;
+      case 'optionPresentationChanged':
+        final active = args?['active'] == true;
+        _updateSurface(() => _surface.setOptionPopoverActive(active));
+        widget.onInputOptionsPresentationChanged?.call(active);
+        break;
+      case 'keyboardFrameChanged':
+        _handleKeyboardFrameChanged(args);
+        break;
+      case 'layoutChanged':
+        final event = ElysBarLayoutEvent.fromMap(args);
+        if (mounted) {
+          setState(() => _lastLayout = event);
+        } else {
+          _lastLayout = event;
+        }
+        widget.onLayoutChanged?.call(event);
+        break;
     }
     return null;
   }
 
-  Future<void> _syncPropsToNativeIfNeeded() async {
-    final ch = _channel;
-    if (ch == null) return;
-
-    final idx = widget.selectedIndex;
-    final bg = widget.backgroundColor != null
-        ? _colorToARGB(widget.backgroundColor!)
-        : null;
-
-    if (_lastIndex != idx) {
-      await ch.invokeMethod('setSelectedIndex', {'index': idx});
-      _lastIndex = idx;
-    }
-
-    if (_lastBg != bg && bg != null) {
-      await ch.invokeMethod('setStyle', {'backgroundColor': bg});
-      _lastBg = bg;
-    }
-
-    // Items update
-    final labels = widget.destinations.map((e) => e.label).toList();
-    final icons = widget.destinations.map((e) {
-      final icon = e.icon;
-      if (icon is String) return icon;
-      return '';
-    }).toList();
-    final selectedIcons = widget.destinations.map((e) {
-      final selectedIcon = e.selectedIcon ?? e.icon;
-      if (selectedIcon is String) return selectedIcon;
-      return '';
-    }).toList();
-    final badgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
-
-    // Check if labels changed (requires full rebuild) or item count changed
-    final labelsChanged = _lastLabels?.join('|') != labels.join('|');
-    final itemCountChanged = _lastIcons?.length != icons.length;
-
-    if (labelsChanged || itemCountChanged) {
-      // Full rebuild needed
-      await ch.invokeMethod('setItems', {
-        'labels': labels,
-        'icons': icons,
-        'selectedIcons': selectedIcons,
-        'badgeCounts': badgeCounts,
-        'selectedIndex': widget.selectedIndex,
+  void _handleKeyboardFrameChanged(Map? args) {
+    final event = ElysKeyboardFrameEvent(
+      height: (args?['height'] as num?)?.toDouble() ?? 0,
+      visible: args?['visible'] == true,
+      duration: (args?['duration'] as num?)?.toDouble() ?? 0,
+    );
+    final nextInset = event.visible ? event.height : 0.0;
+    final nextDuration = event.duration > 0
+        ? Duration(milliseconds: (event.duration * 1000).round())
+        : const Duration(milliseconds: 250);
+    if (mounted &&
+        _updateSurface(
+          () => _surface.setKeyboard(
+            visible: event.visible,
+            inset: nextInset,
+            animationDuration: nextDuration,
+          ),
+        )) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _syncConfigIfNeeded();
       });
-      _lastLabels = List.from(labels);
-      _lastIcons = List.from(icons);
-      _lastSelectedIcons = List.from(selectedIcons);
-      _lastBadgeCounts = List.from(badgeCounts);
-      _requestIntrinsicSize();
-    } else {
-      // Check for individual icon changes - update only changed icons
-      for (int i = 0; i < icons.length; i++) {
-        final iconChanged =
-            _lastIcons != null &&
-            i < _lastIcons!.length &&
-            _lastIcons![i] != icons[i];
-        final selectedIconChanged =
-            _lastSelectedIcons != null &&
-            i < _lastSelectedIcons!.length &&
-            _lastSelectedIcons![i] != selectedIcons[i];
-
-        if (iconChanged || selectedIconChanged) {
-          await ch.invokeMethod('updateItemIcon', {
-            'index': i,
-            if (iconChanged) 'icon': icons[i],
-            if (selectedIconChanged) 'selectedIcon': selectedIcons[i],
-          });
-        }
-      }
-      _lastIcons = List.from(icons);
-      _lastSelectedIcons = List.from(selectedIcons);
     }
-
-    // Center button update
-    if (_lastCenterButtonConfig?.icon != widget.centerButtonConfig?.icon) {
-      if (widget.centerButtonConfig != null) {
-        await ch.invokeMethod('updateCenterButton', {
-          'icon': widget.centerButtonConfig!.icon,
-        });
-      }
-      _lastCenterButtonConfig = widget.centerButtonConfig;
-    }
-
-    // Badge counts update
-    final currentBadgeCounts = widget.destinations
-        .map((e) => e.badgeCount)
-        .toList();
-    if (_lastBadgeCounts?.join('|') != currentBadgeCounts.join('|')) {
-      await ch.invokeMethod('setBadgeCounts', {
-        'badgeCounts': currentBadgeCounts,
-      });
-      _lastBadgeCounts = List.from(currentBadgeCounts);
-    }
+    widget.onKeyboardFrameChanged?.call(event);
   }
 
-  Future<void> _syncBrightnessIfNeeded() async {
-    final ch = _channel;
-    if (ch == null) return;
-    final isDark = _isDark;
-    if (_lastIsDark != isDark) {
-      await ch.invokeMethod('setBrightness', {'isDark': isDark});
-      _lastIsDark = isDark;
-    }
+  Future<void> _syncConfigIfNeeded() async {
+    final channel = _channel;
+    if (channel == null) return;
+    final signature = _signature();
+    if (_lastSignature == signature) return;
+    _lastSignature = signature;
+    await channel.invokeMethod('setConfig', _config());
   }
 
-  void _cacheItems() {
-    _lastLabels = widget.destinations.map((e) => e.label).toList();
-    _lastIcons = widget.destinations.map((e) {
-      final icon = e.icon;
-      if (icon is String) return icon;
-      return '';
-    }).toList();
-    _lastSelectedIcons = widget.destinations.map((e) {
-      final selectedIcon = e.selectedIcon ?? e.icon;
-      if (selectedIcon is String) return selectedIcon;
-      return '';
-    }).toList();
-    _lastBadgeCounts = widget.destinations.map((e) => e.badgeCount).toList();
+  Future<void> _invoke(String method, [Object? arguments]) async {
+    final channel = _channel;
+    if (channel == null) return;
+    await channel.invokeMethod(method, arguments);
   }
 
   Future<void> _requestIntrinsicSize() async {
     if (widget.height != null) return;
-    final ch = _channel;
-    if (ch == null) return;
+    final channel = _channel;
+    if (channel == null) return;
     try {
-      final size = await ch.invokeMethod<Map>('getIntrinsicSize');
-      final h = (size?['height'] as num?)?.toDouble();
-      if (!mounted) return;
-      setState(() {
-        if (h != null && h > 0) _intrinsicHeight = h;
-      });
+      final size = await channel.invokeMethod<Map>('getIntrinsicSize');
+      final height = (size?['height'] as num?)?.toDouble();
+      if (!mounted || height == null || height <= 0) return;
+      setState(() => _intrinsicHeight = height);
     } catch (_) {}
+  }
+
+  bool _updateSurface(VoidCallback update) {
+    final before = _surface.snapshot;
+    update();
+    final after = _surface.snapshot;
+    if (before == after) return false;
+    if (mounted) setState(() {});
+    return true;
   }
 }

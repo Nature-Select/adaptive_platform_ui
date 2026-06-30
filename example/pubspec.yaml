@@ -12,6 +12,7 @@ dependencies:
   go_router: ^15.1.2
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
+  liquid_glass_widgets: 0.18.4
   adaptive_platform_ui:
     path: ../
   flutter:
@@ -27,3 +28,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/elys_tab_bar/

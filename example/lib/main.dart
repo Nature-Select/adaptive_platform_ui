@@ -1,30 +1,29 @@
-import 'package:adaptive_platform_ui_example/service/router/router_service.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:adaptive_platform_ui_example/pages/demos/elys_tab_bar_platform_view/elys_tab_bar_comparison_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-void main() {
-  runApp(const AdaptivePlatformUIDemo());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
+  runApp(LiquidGlassWidgets.wrap(child: const AdaptivePlatformUIDemo()));
 }
 
-class AdaptivePlatformUIDemo extends StatefulWidget {
+class AdaptivePlatformUIDemo extends StatelessWidget {
   const AdaptivePlatformUIDemo({super.key});
 
   @override
-  State<AdaptivePlatformUIDemo> createState() => _AdaptivePlatformUIDemoState();
-}
-
-class _AdaptivePlatformUIDemoState extends State<AdaptivePlatformUIDemo> {
-  RouterService routerService = RouterService();
-
-  @override
   Widget build(BuildContext context) {
-    return AdaptiveApp.router(
+    return AdaptiveApp(
       themeMode: ThemeMode.system,
-      title: 'Adaptive Platform UI',
-      cupertinoLightTheme: CupertinoThemeData(brightness: Brightness.light),
-      cupertinoDarkTheme: CupertinoThemeData(brightness: Brightness.dark),
+      title: 'Elys Tab Bar',
+      home: const ElysTabBarComparisonPage(),
+      cupertinoLightTheme: const CupertinoThemeData(
+        brightness: Brightness.light,
+      ),
+      cupertinoDarkTheme: const CupertinoThemeData(brightness: Brightness.dark),
       materialLightTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
@@ -52,7 +51,6 @@ class _AdaptivePlatformUIDemoState extends State<AdaptivePlatformUIDemo> {
         const Locale('tr'), // Turkish
         // ... other locales the app supports
       ],
-      routerConfig: routerService.router,
     );
   }
 }
