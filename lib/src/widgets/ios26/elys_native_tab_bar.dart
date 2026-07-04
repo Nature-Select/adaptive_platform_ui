@@ -201,7 +201,6 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
         break;
       case 'optionPresentationChanged':
         final active = args?['active'] == true;
-        _updateSurface(() => _surface.setOptionPopoverActive(active));
         widget.onInputOptionsPresentationChanged?.call(active);
         break;
       case 'keyboardFrameChanged':

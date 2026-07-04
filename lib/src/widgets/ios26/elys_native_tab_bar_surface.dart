@@ -1,6 +1,6 @@
 part of 'elys_native_tab_bar.dart';
 
-enum _ElysNativeSurfaceMode { tabBar, inputCollapsed, keyboard, optionPopover }
+enum _ElysNativeSurfaceMode { tabBar, inputCollapsed, keyboard }
 
 class _ElysNativeSurfaceSnapshot {
   const _ElysNativeSurfaceSnapshot({
@@ -29,17 +29,12 @@ class _ElysNativeSurfaceCoordinator {
   _ElysNativeSurfaceCoordinator({required bool inputActive})
     : _inputActive = inputActive;
 
-  static const _fallbackKeyboardInputHeight = 120.0;
-  static const _inputKeyboardGap = 2.0;
-
   bool _inputActive;
-  bool _optionPopoverActive = false;
   double _keyboardInset = 0;
   Duration _animationDuration = const Duration(milliseconds: 250);
 
   _ElysNativeSurfaceMode get mode {
     if (_keyboardInset > 0) return _ElysNativeSurfaceMode.keyboard;
-    if (_optionPopoverActive) return _ElysNativeSurfaceMode.optionPopover;
     if (_inputActive) return _ElysNativeSurfaceMode.inputCollapsed;
     return _ElysNativeSurfaceMode.tabBar;
   }
@@ -58,10 +53,8 @@ class _ElysNativeSurfaceCoordinator {
     required ElysBarLayoutEvent? layout,
   }) {
     return switch (mode) {
-      _ElysNativeSurfaceMode.optionPopover => fullHeight,
       _ElysNativeSurfaceMode.keyboard => _keyboardViewHeight(
         fullHeight: fullHeight,
-        layout: layout,
       ),
       _ => barHeight,
     };
@@ -69,12 +62,6 @@ class _ElysNativeSurfaceCoordinator {
 
   void setInputActive(bool active) {
     _inputActive = active;
-    if (!active) _optionPopoverActive = false;
-  }
-
-  void setOptionPopoverActive(bool active) {
-    _optionPopoverActive = active;
-    _animationDuration = const Duration(milliseconds: 220);
   }
 
   void setKeyboard({
@@ -86,16 +73,7 @@ class _ElysNativeSurfaceCoordinator {
     _animationDuration = animationDuration;
   }
 
-  double _keyboardViewHeight({
-    required double fullHeight,
-    required ElysBarLayoutEvent? layout,
-  }) {
-    final nextHeight = _inputHeight(layout) + _inputKeyboardGap;
-    return nextHeight.clamp(0, fullHeight).toDouble();
-  }
-
-  double _inputHeight(ElysBarLayoutEvent? layout) {
-    final height = layout?.inputFrame.height ?? 0;
-    return height > 0 ? height : _fallbackKeyboardInputHeight;
+  double _keyboardViewHeight({required double fullHeight}) {
+    return fullHeight;
   }
 }

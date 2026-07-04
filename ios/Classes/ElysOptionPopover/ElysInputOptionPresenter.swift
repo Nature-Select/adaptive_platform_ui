@@ -1,12 +1,13 @@
 import UIKit
 
 @available(iOS 26.0, *)
-final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerDelegate {
+final class ElysInputOptionPresenter: NSObject {
     private let assetLoader: ElysAssetLoader
     private var items: [ElysInputOptionConfig] = []
-    private weak var currentViewController: ElysOptionPopoverViewController?
-    private var tapDismissView: UIControl?
+    private weak var currentPanel: ElysOptionPopoverView?
+    private var dismissControl: UIControl?
     private var isPresented = false
+    private var isAnimatingDismissal = false
     var onPresentationChanged: ((Bool) -> Void)?
 
     init(assetLoader: ElysAssetLoader) {
@@ -20,7 +21,7 @@ final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerD
 
     func configure(items: [ElysInputOptionConfig]) {
         self.items = items
-        currentViewController?.update(items: items)
+        currentPanel?.update(items: items)
     }
 
     func update(item: ElysInputOptionConfig) {
@@ -29,7 +30,7 @@ final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerD
         } else {
             items.append(item)
         }
-        currentViewController?.update(items: items)
+        currentPanel?.update(items: items)
     }
 
     func present(
@@ -38,42 +39,32 @@ final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerD
         onSelect: @escaping (ElysInputOptionConfig) -> Void
     ) {
         guard hasItems,
-              let presenter = topViewController(from: containerView) else { return }
+              let hostView = containerView.window ?? containerView.superview else { return }
         dismissCurrent(animated: false)
 
-        let viewController = ElysOptionPopoverViewController(
+        let control = UIControl(frame: hostView.bounds)
+        control.backgroundColor = .clear
+        control.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        control.addTarget(self, action: #selector(outsideTapped), for: .touchUpInside)
+        hostView.addSubview(control)
+        dismissControl = control
+
+        let panel = ElysOptionPopoverView(
             items: items,
             assetLoader: assetLoader
         ) { [weak self] item in
             self?.dismissCurrent(animated: true)
             onSelect(item)
         }
-        viewController.modalPresentationStyle = .popover
-        viewController.popoverPresentationController?.sourceItem = sourceView
-        viewController.popoverPresentationController?.sourceRect = sourceView.bounds
-        viewController.popoverPresentationController?.permittedArrowDirections = []
-        viewController.popoverPresentationController?.backgroundColor = .clear
-        viewController.popoverPresentationController?.delegate = self
-        currentViewController = viewController
-        installTapDismissView(in: containerView.window ?? presenter.view.window)
+        panel.frame = panelFrame(for: panel.bounds.size, sourceView: sourceView, hostView: hostView)
+        hostView.addSubview(panel)
+        currentPanel = panel
         setPresented(true)
-        presenter.present(viewController, animated: true)
+        panel.animatePresentation(from: sourceView)
     }
 
     func dismiss(animated: Bool) {
         dismissCurrent(animated: animated)
-    }
-
-    func adaptivePresentationStyle(
-        for controller: UIPresentationController
-    ) -> UIModalPresentationStyle {
-        .none
-    }
-
-    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        currentViewController = nil
-        removeTapDismissView()
-        setPresented(false)
     }
 
     @objc private func outsideTapped() {
@@ -81,10 +72,29 @@ final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerD
     }
 
     private func dismissCurrent(animated: Bool) {
-        currentViewController?.dismiss(animated: animated)
-        currentViewController = nil
-        removeTapDismissView()
-        setPresented(false)
+        guard let panel = currentPanel else {
+            dismissControl?.removeFromSuperview()
+            dismissControl = nil
+            isAnimatingDismissal = false
+            setPresented(false)
+            return
+        }
+        guard !isAnimatingDismissal else { return }
+        isAnimatingDismissal = true
+        dismissControl?.isUserInteractionEnabled = false
+        let finish = { [weak self, weak panel] in
+            panel?.removeFromSuperview()
+            self?.dismissControl?.removeFromSuperview()
+            self?.dismissControl = nil
+            self?.currentPanel = nil
+            self?.isAnimatingDismissal = false
+            self?.setPresented(false)
+        }
+        if animated {
+            panel.animateDismissal(completion: finish)
+        } else {
+            finish()
+        }
     }
 
     private func setPresented(_ presented: Bool) {
@@ -93,38 +103,21 @@ final class ElysInputOptionPresenter: NSObject, UIPopoverPresentationControllerD
         onPresentationChanged?(presented)
     }
 
-    private func installTapDismissView(in window: UIWindow?) {
-        removeTapDismissView()
-        guard let window else { return }
-        let control = UIControl(frame: window.bounds)
-        control.backgroundColor = .clear
-        control.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        control.addTarget(self, action: #selector(outsideTapped), for: .touchUpInside)
-        window.addSubview(control)
-        tapDismissView = control
-    }
-
-    private func removeTapDismissView() {
-        tapDismissView?.removeFromSuperview()
-        tapDismissView = nil
-    }
-
-    private func topViewController(from view: UIView) -> UIViewController? {
-        var responder: UIResponder? = view
-        while let current = responder {
-            if let viewController = current as? UIViewController {
-                return topMost(from: viewController)
-            }
-            responder = current.next
-        }
-        return topMost(from: view.window?.rootViewController)
-    }
-
-    private func topMost(from root: UIViewController?) -> UIViewController? {
-        var current = root
-        while let presented = current?.presentedViewController {
-            current = presented
-        }
-        return current
+    private func panelFrame(
+        for size: CGSize,
+        sourceView: UIView,
+        hostView: UIView
+    ) -> CGRect {
+        let sourceFrame = sourceView.convert(sourceView.bounds, to: hostView)
+        let safe = hostView.safeAreaInsets
+        let horizontalInset: CGFloat = 12
+        let sourceCoverOffset: CGFloat = 0
+        let x = min(
+            max(horizontalInset, sourceFrame.minX - 22),
+            max(horizontalInset, hostView.bounds.width - size.width - horizontalInset)
+        )
+        let preferredY = sourceFrame.maxY - size.height + sourceCoverOffset
+        let y = max(safe.top + 8, preferredY)
+        return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }
 }
