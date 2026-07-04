@@ -4,6 +4,7 @@ class ElysInputOption {
     required this.icon,
     required this.title,
     this.enabled = true,
+    this.showsSeparatorAfter = false,
     this.accessibilityLabel,
   });
 
@@ -11,6 +12,7 @@ class ElysInputOption {
   final String icon;
   final String title;
   final bool enabled;
+  final bool showsSeparatorAfter;
   final String? accessibilityLabel;
 
   Map<String, Object?> toMap() => {
@@ -18,6 +20,7 @@ class ElysInputOption {
     'icon': icon,
     'title': title,
     'enabled': enabled,
+    'showsSeparatorAfter': showsSeparatorAfter,
     if (accessibilityLabel != null) 'accessibilityLabel': accessibilityLabel,
   };
 }

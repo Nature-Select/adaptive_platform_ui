@@ -138,13 +138,7 @@ final class ElysLiquidBarView: UIView {
         inputBar.onLeadingAccessoryTapped = { [weak self] id, sourceView in
             guard let self else { return }
             if self.optionPresenter.hasItems {
-                self.optionPresenter.present(from: sourceView, in: self) { [weak self] item in
-                    guard let self else { return }
-                    self.onEvent?("inputOptionTapped", [
-                        "id": item.id,
-                        "text": self.inputBar.text
-                    ])
-                }
+                self.presentInputOptions(from: sourceView)
             } else {
                 self.onEvent?("inputAccessoryTapped", ["id": id, "text": self.inputBar.text])
             }
@@ -158,6 +152,18 @@ final class ElysLiquidBarView: UIView {
     @objc private func blankTapped() {
         guard interactionCoordinator.inputActive else { return }
         inputBar.blur()
+    }
+
+    private func presentInputOptions(from sourceView: UIView) {
+        let keepFocus = inputBar.isTextInputFocused
+        optionPresenter.present(from: sourceView, in: self) { [weak self] item in
+            guard let self else { return }
+            self.onEvent?("inputOptionTapped", [
+                "id": item.id,
+                "text": self.inputBar.text
+            ])
+        }
+        inputBar.refocusIfNeeded(keepFocus)
     }
 
     private func measuredLayout() -> ElysBarLayout {
@@ -260,7 +266,7 @@ final class ElysLiquidBarView: UIView {
 
     private func keyboardTopY(_ state: ElysBarRenderState) -> CGFloat {
         guard state.keyboard.visible else { return bounds.height }
-        return max(0, min(bounds.height, bounds.height - state.keyboard.height))
+        return bounds.height
     }
 
 }

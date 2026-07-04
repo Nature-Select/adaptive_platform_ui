@@ -10,7 +10,7 @@ private final class ElysInputAccessoryButton: UIButton {
 }
 
 @available(iOS 26.0, *)
-final class ElysInputBarView: UIView, UITextViewDelegate {
+final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDelegate {
     private let assetLoader: ElysAssetLoader
     private let glassView: UIVisualEffectView
     private let textView = UITextView(frame: .zero)
@@ -18,6 +18,12 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
     private let leadingButton = ElysInputAccessoryButton(frame: .zero)
     private let trailingBackgroundView = UIView(frame: .zero)
     private let trailingButton = ElysInputAccessoryButton(frame: .zero)
+    private lazy var accessoryTapGesture: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(accessoryTappedByGesture(_:)))
+        gesture.cancelsTouchesInView = true
+        gesture.delegate = self
+        return gesture
+    }()
     private var expanded = false
     private var leadingAction: ElysActionConfig?
     private var collapsedTrailingAction: ElysActionConfig?
@@ -60,6 +66,16 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
         }
     }
 
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        for button in [leadingButton, trailingButton] where canHitAccessory(button) {
+            let buttonPoint = convert(point, to: button)
+            if button.point(inside: buttonPoint, with: event) {
+                return button
+            }
+        }
+        return super.hitTest(point, with: event)
+    }
+
     func configure(_ config: ElysInputConfig) {
         placeholderLabel.text = config.placeholder
         leadingAction = config.leadingAction
@@ -83,6 +99,17 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
 
     func blur() {
         textView.resignFirstResponder()
+    }
+
+    var isTextInputFocused: Bool {
+        textView.isFirstResponder
+    }
+
+    func refocusIfNeeded(_ shouldRefocus: Bool) {
+        guard shouldRefocus else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.textView.becomeFirstResponder()
+        }
     }
 
     func prepareForDismissalAnimation() {
@@ -233,8 +260,14 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
         addSubview(trailingButton)
         addSubview(textView)
         addSubview(placeholderLabel)
+        addGestureRecognizer(accessoryTapGesture)
         setExpanded(false)
         updatePlaceholder()
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === accessoryTapGesture else { return true }
+        return hitAccessory(at: touch.location(in: self)) != nil
     }
 
     private func updatePlaceholder() {
@@ -371,6 +404,23 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
         }
     }
 
+    private func canHitAccessory(_ button: UIButton) -> Bool {
+        !button.isHidden
+            && button.alpha > 0.01
+            && button.isUserInteractionEnabled
+            && button.image(for: .normal) != nil
+    }
+
+    private func hitAccessory(at point: CGPoint) -> UIButton? {
+        for button in [leadingButton, trailingButton] where canHitAccessory(button) {
+            let buttonPoint = convert(point, to: button)
+            if button.point(inside: buttonPoint, with: nil) {
+                return button
+            }
+        }
+        return nil
+    }
+
     @objc private func accessoryTouchDown(_ button: UIButton) {
         let isLeadingAccessory = button === leadingButton
         animateAccessory(
@@ -479,6 +529,16 @@ final class ElysInputBarView: UIView, UITextViewDelegate {
             onSubmit?(text)
         }
         onAccessoryTapped?(action.id)
+    }
+
+    @objc private func accessoryTappedByGesture(_ gesture: UITapGestureRecognizer) {
+        guard gesture.state == .ended,
+              let button = hitAccessory(at: gesture.location(in: self)) else { return }
+        if button === leadingButton {
+            leadingTapped()
+        } else if button === trailingButton {
+            trailingTapped()
+        }
     }
 
     func textViewDidChange(_ textView: UITextView) {

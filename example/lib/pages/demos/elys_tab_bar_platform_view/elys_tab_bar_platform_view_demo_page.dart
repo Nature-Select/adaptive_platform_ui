@@ -113,7 +113,12 @@ class _ElysTabBarPlatformViewDemoPageState
       title: '照片',
       enabled: _photoOptionEnabled,
     ),
-    const ElysInputOption(id: 'sticker', icon: _profileSelected, title: '贴纸'),
+    const ElysInputOption(
+      id: 'sticker',
+      icon: _profileSelected,
+      title: '贴纸',
+      showsSeparatorAfter: true,
+    ),
     const ElysInputOption(id: 'audio', icon: _inputVoice, title: '音频'),
     const ElysInputOption(id: 'store', icon: _chatSelected, title: '商店'),
     const ElysInputOption(id: 'travel', icon: _mapSelected, title: '携程旅行'),
@@ -154,15 +159,22 @@ class _ElysTabBarPlatformViewDemoPageState
 
   bool _isInsideNativeInput(ElysBarLayoutEvent layout, Offset globalPosition) {
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final platformTop = screenHeight - layout.platformHeight;
+    final keyboardHeight = layout.keyboardVisible ? layout.keyboardHeight : 0.0;
+    final possiblePlatformTops = <double>{
+      screenHeight - layout.platformHeight,
+      screenHeight - keyboardHeight - layout.platformHeight,
+      screenHeight + keyboardHeight - layout.platformHeight,
+    };
     final input = layout.inputFrame;
-    final inputRect = Rect.fromLTWH(
-      input.x,
-      platformTop + input.y,
-      input.width,
-      input.height,
-    ).inflate(18);
-    return inputRect.contains(globalPosition);
+    return possiblePlatformTops.any((platformTop) {
+      final inputRect = Rect.fromLTWH(
+        input.x,
+        platformTop + input.y,
+        input.width,
+        input.height,
+      ).inflate(32);
+      return inputRect.contains(globalPosition);
+    });
   }
 
   @override

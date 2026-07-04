@@ -6,6 +6,7 @@ struct ElysInputOptionConfig {
     let icon: String
     let title: String
     let enabled: Bool
+    let showsSeparatorAfter: Bool
     let accessibilityLabel: String?
 
     init?(dict: [String: Any]?) {
@@ -17,6 +18,7 @@ struct ElysInputOptionConfig {
         self.icon = icon
         self.title = title
         self.enabled = (dict["enabled"] as? NSNumber)?.boolValue ?? true
+        self.showsSeparatorAfter = (dict["showsSeparatorAfter"] as? NSNumber)?.boolValue ?? false
         self.accessibilityLabel = dict["accessibilityLabel"] as? String
     }
 }
