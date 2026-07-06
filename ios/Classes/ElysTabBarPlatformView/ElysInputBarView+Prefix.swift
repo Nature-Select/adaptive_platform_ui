@@ -124,7 +124,10 @@ extension ElysInputBarView {
             maxSize: CGSize(width: 20, height: 20)
         ) {
             let attachment = NSTextAttachment()
-            attachment.image = icon
+            attachment.image = icon.withTintColor(
+                prefixTextColor,
+                renderingMode: .alwaysOriginal
+            )
             attachment.bounds = CGRect(
                 x: 0,
                 y: (font.capHeight - 20) / 2,
@@ -160,12 +163,7 @@ extension ElysInputBarView {
     fileprivate func prefixTextAttributes(font: UIFont) -> [NSAttributedString.Key: Any] {
         [
             .font: font,
-            .foregroundColor: UIColor(
-                red: 0x57 / 255.0,
-                green: 0x6B / 255.0,
-                blue: 0x92 / 255.0,
-                alpha: 1.0
-            )
+            .foregroundColor: prefixTextColor
         ]
     }
 
@@ -177,6 +175,15 @@ extension ElysInputBarView {
     }
 
     private var nonBreakingSpace: String { "\u{00A0}" }
+
+    private var prefixTextColor: UIColor {
+        UIColor(
+            red: 0x57 / 255.0,
+            green: 0x6B / 255.0,
+            blue: 0x92 / 255.0,
+            alpha: 1.0
+        )
+    }
 }
 
 private extension NSRange {
