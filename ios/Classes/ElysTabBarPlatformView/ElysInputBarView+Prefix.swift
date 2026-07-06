@@ -15,7 +15,8 @@ extension ElysInputBarView {
         replacementText replacement: String
     ) -> Bool {
         guard !isApplyingTextStorage else { return true }
-        applyTextReplacement(in: range, replacement: replacement)
+        guard rangeTouchesPrefix(range) else { return true }
+        applyPrefixReplacement(in: range, replacement: replacement)
         return false
     }
 
@@ -26,33 +27,20 @@ extension ElysInputBarView {
         textView.selectedRange = NSRange(location: prefixLength, length: 0)
     }
 
-    fileprivate func applyTextReplacement(in range: NSRange, replacement: String) {
+    fileprivate func applyPrefixReplacement(in range: NSRange, replacement: String) {
         let prefixLength = currentPrefixLength()
         let body = inputText as NSString
-        if prefixLength > 0, range.location < prefixLength {
-            let deletedPrefix = inputPrefix
-            let affectedBodyLength = max(0, min(body.length, range.upperBound - prefixLength))
-            let updated = body.replacingCharacters(
-                in: NSRange(location: 0, length: affectedBodyLength),
-                with: replacement
-            )
-            inputPrefix = nil
-            inputText = updated
-            renderInputText(cursorBodyOffset: (replacement as NSString).length)
-            notifyPreferredHeightChanged()
-            if let deletedPrefix { onPrefixDeleted?(deletedPrefix.id) }
-            onTextChanged?(inputText)
-            return
-        }
-
-        let bodyLocation = min(body.length, max(0, range.location - prefixLength))
-        let bodyLength = min(max(0, body.length - bodyLocation), range.length)
-        inputText = body.replacingCharacters(
-            in: NSRange(location: bodyLocation, length: bodyLength),
+        let deletedPrefix = inputPrefix
+        let affectedBodyLength = max(0, min(body.length, range.upperBound - prefixLength))
+        let updated = body.replacingCharacters(
+            in: NSRange(location: 0, length: affectedBodyLength),
             with: replacement
         )
-        renderInputText(cursorBodyOffset: bodyLocation + (replacement as NSString).length)
+        inputPrefix = nil
+        inputText = updated
+        renderInputText(cursorBodyOffset: (replacement as NSString).length)
         notifyPreferredHeightChanged()
+        if let deletedPrefix { onPrefixDeleted?(deletedPrefix.id) }
         onTextChanged?(inputText)
     }
 
@@ -86,14 +74,17 @@ extension ElysInputBarView {
         } else {
             nextText = display as String
         }
-        guard nextText != inputText else {
-            updatePlaceholder()
-            return
-        }
+        guard nextText != inputText else { updatePlaceholder(); return }
         inputText = nextText
-        renderInputText()
+        textView.typingAttributes = bodyTextAttributes()
         notifyPreferredHeightChanged()
         onTextChanged?(inputText)
+    }
+
+    fileprivate func rangeTouchesPrefix(_ range: NSRange) -> Bool {
+        let prefixLength = currentPrefixLength()
+        guard prefixLength > 0 else { return false }
+        return range.location < prefixLength
     }
 
     func measuredInputTextHeight(width: CGFloat, font: UIFont) -> CGFloat {
