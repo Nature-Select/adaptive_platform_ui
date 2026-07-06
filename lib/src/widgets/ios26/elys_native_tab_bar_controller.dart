@@ -24,6 +24,14 @@ class ElysNativeTabBarController {
     return _state?._invoke('updateInputOption', item.toMap()) ?? Future.value();
   }
 
+  Future<void> updateInputPrefix(ElysInputPrefix? prefix) {
+    return _state?._invoke(
+          'updateInputPrefix',
+          {'prefix': prefix?.toMap()},
+        ) ??
+        Future.value();
+  }
+
   void _attach(_ElysNativeTabBarState state) => _state = state;
 
   void _detach(_ElysNativeTabBarState state) {

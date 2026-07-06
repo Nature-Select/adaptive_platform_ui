@@ -49,6 +49,7 @@ class ElysInputConfig {
   const ElysInputConfig({
     this.text = '',
     this.placeholder = '',
+    this.prefix,
     this.sideAction,
     this.leadingAction,
     this.collapsedTrailingAction,
@@ -58,6 +59,7 @@ class ElysInputConfig {
 
   final String text;
   final String placeholder;
+  final ElysInputPrefix? prefix;
   final ElysBarAction? sideAction;
   final ElysBarAction? leadingAction;
   final ElysBarAction? collapsedTrailingAction;
@@ -67,6 +69,7 @@ class ElysInputConfig {
   Map<String, Object?> toMap() => {
     'text': text,
     'placeholder': placeholder,
+    if (prefix != null) 'prefix': prefix!.toMap(),
     if (sideAction != null) 'sideAction': sideAction!.toMap(),
     if (leadingAction != null) 'leadingAction': leadingAction!.toMap(),
     if (collapsedTrailingAction != null)
@@ -76,6 +79,20 @@ class ElysInputConfig {
     if (optionItems.isNotEmpty)
       'optionItems': optionItems.map((item) => item.toMap()).toList(),
   };
+}
+
+class ElysInputPrefix {
+  const ElysInputPrefix({
+    required this.id,
+    required this.icon,
+    required this.text,
+  });
+
+  final String id;
+  final String icon;
+  final String text;
+
+  Map<String, Object?> toMap() => {'id': id, 'icon': icon, 'text': text};
 }
 
 class ElysBarActionEvent {

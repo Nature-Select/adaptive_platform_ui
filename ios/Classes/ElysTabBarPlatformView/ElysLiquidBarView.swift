@@ -70,6 +70,10 @@ final class ElysLiquidBarView: UIView {
         optionPresenter.update(item: item)
     }
 
+    func updateInputPrefix(_ prefix: ElysInputPrefixConfig?) {
+        inputBar.setPrefix(prefix)
+    }
+
     func focusInput() {
         if !interactionCoordinator.inputActive {
             setInputActive(true, animated: true, emit: true)
@@ -122,6 +126,9 @@ final class ElysLiquidBarView: UIView {
         }
         inputBar.onTextChanged = { [weak self] text in
             self?.onEvent?("inputTextChanged", ["text": text])
+        }
+        inputBar.onPrefixDeleted = { [weak self] id in
+            self?.onEvent?("inputPrefixDeleted", ["id": id])
         }
         inputBar.onSubmit = { [weak self] text in
             self?.onEvent?("inputSubmitted", ["text": text])

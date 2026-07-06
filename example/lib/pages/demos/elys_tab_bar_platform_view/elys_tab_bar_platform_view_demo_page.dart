@@ -46,6 +46,7 @@ class _ElysTabBarPlatformViewDemoPageState
   int _chatBadge = 3;
   int _flutterTestTapCount = 0;
   bool _photoOptionEnabled = false;
+  bool _showInputPrefix = true;
   ElysBarLayoutEvent? _barLayout;
   final _barController = ElysNativeTabBarController();
 
@@ -105,6 +106,15 @@ class _ElysTabBarPlatformViewDemoPageState
     );
   }
 
+  ElysInputPrefix? get _inputPrefix {
+    if (!_showInputPrefix) return null;
+    return const ElysInputPrefix(
+      id: 'add_memory',
+      icon: _mapSelected,
+      text: 'Add Memory',
+    );
+  }
+
   List<ElysInputOption> get _inputOptions => [
     const ElysInputOption(id: 'camera', icon: _map, title: '相机'),
     ElysInputOption(
@@ -138,6 +148,14 @@ class _ElysTabBarPlatformViewDemoPageState
         enabled: enabled,
       ),
     );
+  }
+
+  Future<void> _restoreInputPrefix() async {
+    setState(() {
+      _showInputPrefix = true;
+      _lastEvent = 'prefix restored';
+    });
+    await _barController.updateInputPrefix(_inputPrefix);
   }
 
   void _recordFlutterTestTap(String source) {
@@ -213,7 +231,9 @@ class _ElysTabBarPlatformViewDemoPageState
                   child: _inputActive
                       ? ElysDemoInputPage(
                           text: _inputText,
+                          hasPrefix: _showInputPrefix,
                           testTapCount: _flutterTestTapCount,
+                          onPrefixRestorePressed: _restoreInputPrefix,
                           onPrimaryTestPressed: () =>
                               _recordFlutterTestTap('primary'),
                           onSecondaryTestPressed: () =>
@@ -223,9 +243,11 @@ class _ElysTabBarPlatformViewDemoPageState
                           selectedTabId: _selectedTabId,
                           inputActive: _inputActive,
                           inputText: _inputText,
+                          hasPrefix: _showInputPrefix,
                           lastEvent: _lastEvent,
                           onBadgePressed: () => setState(() => _chatBadge++),
                           onOptionTogglePressed: _togglePhotoOption,
+                          onPrefixRestorePressed: _restoreInputPrefix,
                           optionEnabled: _photoOptionEnabled,
                         ),
                 ),
@@ -243,6 +265,7 @@ class _ElysTabBarPlatformViewDemoPageState
                   inputConfig: ElysInputConfig(
                     text: _inputText,
                     placeholder: '输入任何内容...',
+                    prefix: _inputPrefix,
                     sideAction: _inputSideAction,
                     leadingAction: const ElysBarAction(
                       id: 'more',
@@ -296,6 +319,12 @@ class _ElysTabBarPlatformViewDemoPageState
                     setState(() {
                       _lastEvent =
                           'accessory: ${event.id} (${event.text ?? ''})';
+                    });
+                  },
+                  onInputPrefixDeleted: (id) {
+                    setState(() {
+                      _showInputPrefix = false;
+                      _lastEvent = 'prefix deleted: $id';
                     });
                   },
                   onInputOptionTapped: (event) {
