@@ -30,6 +30,7 @@ class ElysNativeTabBar extends StatefulWidget {
     this.onInputSubmitted,
     this.onInputSideAction,
     this.onInputAccessoryAction,
+    this.onInputPrefixDeleted,
     this.onInputOptionTapped,
     this.onInputOptionsPresentationChanged,
     this.onKeyboardFrameChanged,
@@ -50,6 +51,7 @@ class ElysNativeTabBar extends StatefulWidget {
   final ValueChanged<String>? onInputSubmitted;
   final ValueChanged<ElysBarActionEvent>? onInputSideAction;
   final ValueChanged<ElysBarActionEvent>? onInputAccessoryAction;
+  final ValueChanged<String>? onInputPrefixDeleted;
   final ValueChanged<ElysInputOptionEvent>? onInputOptionTapped;
   final ValueChanged<bool>? onInputOptionsPresentationChanged;
   final ValueChanged<ElysKeyboardFrameEvent>? onKeyboardFrameChanged;
@@ -190,6 +192,10 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
             text: args?['text'] as String?,
           ),
         );
+        break;
+      case 'inputPrefixDeleted':
+        final id = args?['id'] as String?;
+        if (id != null) widget.onInputPrefixDeleted?.call(id);
         break;
       case 'inputOptionTapped':
         widget.onInputOptionTapped?.call(

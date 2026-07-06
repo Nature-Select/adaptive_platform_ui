@@ -64,6 +64,11 @@ final class ElysTabBarPlatformView: NSObject, FlutterPlatformView {
             }
             rootView.updateInputOption(item)
             result(nil)
+        case "updateInputPrefix":
+            let args = call.arguments as? [String: Any]
+            let prefix = ElysInputPrefixConfig(dict: args?["prefix"] as? [String: Any])
+            rootView.updateInputPrefix(prefix)
+            result(nil)
         case "getIntrinsicSize":
             result([
                 "width": Double(rootView.bounds.width),

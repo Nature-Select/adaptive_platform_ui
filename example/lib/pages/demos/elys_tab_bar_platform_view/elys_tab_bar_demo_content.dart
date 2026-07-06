@@ -60,18 +60,22 @@ class ElysDemoTabPage extends StatelessWidget {
     required this.selectedTabId,
     required this.inputActive,
     required this.inputText,
+    required this.hasPrefix,
     required this.lastEvent,
     required this.onBadgePressed,
     required this.onOptionTogglePressed,
+    required this.onPrefixRestorePressed,
     required this.optionEnabled,
   });
 
   final String selectedTabId;
   final bool inputActive;
   final String inputText;
+  final bool hasPrefix;
   final String lastEvent;
   final VoidCallback onBadgePressed;
   final VoidCallback onOptionTogglePressed;
+  final VoidCallback onPrefixRestorePressed;
   final bool optionEnabled;
 
   @override
@@ -89,6 +93,7 @@ class ElysDemoTabPage extends StatelessWidget {
           selectedTabId: selectedTabId,
           inputActive: inputActive,
           inputText: inputText,
+          hasPrefix: hasPrefix,
           lastEvent: lastEvent,
         ),
         const SizedBox(height: 16),
@@ -103,6 +108,12 @@ class ElysDemoTabPage extends StatelessWidget {
             optionEnabled ? 'Disable photo option' : 'Enable photo option',
           ),
         ),
+        const SizedBox(height: 12),
+        CupertinoButton(
+          color: CupertinoColors.systemGrey5.resolveFrom(context),
+          onPressed: onPrefixRestorePressed,
+          child: Text(hasPrefix ? 'Update prefix: shown' : 'Update prefix'),
+        ),
       ],
     );
   }
@@ -112,13 +123,17 @@ class ElysDemoInputPage extends StatelessWidget {
   const ElysDemoInputPage({
     super.key,
     required this.text,
+    required this.hasPrefix,
     required this.testTapCount,
+    required this.onPrefixRestorePressed,
     required this.onPrimaryTestPressed,
     required this.onSecondaryTestPressed,
   });
 
   final String text;
+  final bool hasPrefix;
   final int testTapCount;
+  final VoidCallback onPrefixRestorePressed;
   final VoidCallback onPrimaryTestPressed;
   final VoidCallback onSecondaryTestPressed;
 
@@ -142,6 +157,12 @@ class ElysDemoInputPage extends StatelessWidget {
                 ? CupertinoColors.secondaryLabel.resolveFrom(context)
                 : CupertinoColors.label.resolveFrom(context),
           ),
+        ),
+        const SizedBox(height: 14),
+        CupertinoButton(
+          color: CupertinoColors.systemGrey5.resolveFrom(context),
+          onPressed: onPrefixRestorePressed,
+          child: Text(hasPrefix ? 'Prefix shown' : 'Restore prefix'),
         ),
         const SizedBox(height: 280),
         Text(
@@ -207,12 +228,14 @@ class _StatusCard extends StatelessWidget {
     required this.selectedTabId,
     required this.inputActive,
     required this.inputText,
+    required this.hasPrefix,
     required this.lastEvent,
   });
 
   final String selectedTabId;
   final bool inputActive;
   final String inputText;
+  final bool hasPrefix;
   final String lastEvent;
 
   @override
@@ -228,6 +251,7 @@ class _StatusCard extends StatelessWidget {
           _row('Selected tab', selectedTabId),
           _row('Input active', '$inputActive'),
           _row('Input text', inputText.isEmpty ? '-' : inputText),
+          _row('Input prefix', hasPrefix ? 'Add Memory' : '-'),
           _row('Last event', lastEvent),
         ],
       ),

@@ -41,6 +41,7 @@ struct ElysTabConfig {
 struct ElysInputConfig {
     let text: String
     let placeholder: String
+    let prefix: ElysInputPrefixConfig?
     let sideAction: ElysActionConfig?
     let leadingAction: ElysActionConfig?
     let collapsedTrailingAction: ElysActionConfig?
@@ -50,6 +51,7 @@ struct ElysInputConfig {
     init(dict: [String: Any]?) {
         self.text = dict?["text"] as? String ?? ""
         self.placeholder = dict?["placeholder"] as? String ?? ""
+        self.prefix = ElysInputPrefixConfig(dict: dict?["prefix"] as? [String: Any])
         self.sideAction = ElysActionConfig(dict: dict?["sideAction"] as? [String: Any])
         self.leadingAction = ElysActionConfig(dict: dict?["leadingAction"] as? [String: Any])
         self.collapsedTrailingAction = ElysActionConfig(
@@ -60,6 +62,23 @@ struct ElysInputConfig {
         )
         let optionDicts = dict?["optionItems"] as? [[String: Any]] ?? []
         self.optionItems = optionDicts.compactMap(ElysInputOptionConfig.init)
+    }
+}
+
+@available(iOS 26.0, *)
+struct ElysInputPrefixConfig {
+    let id: String
+    let icon: String
+    let text: String
+
+    init?(dict: [String: Any]?) {
+        guard let dict,
+              let id = dict["id"] as? String,
+              let icon = dict["icon"] as? String,
+              let text = dict["text"] as? String else { return nil }
+        self.id = id
+        self.icon = icon
+        self.text = text
     }
 }
 

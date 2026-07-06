@@ -11,10 +11,10 @@ private final class ElysInputAccessoryButton: UIButton {
 
 @available(iOS 26.0, *)
 final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDelegate {
-    private let assetLoader: ElysAssetLoader
+    let assetLoader: ElysAssetLoader
     private let glassView: UIVisualEffectView
-    private let textView = UITextView(frame: .zero)
-    private let placeholderLabel = UILabel(frame: .zero)
+    let textView = UITextView(frame: .zero)
+    let placeholderLabel = UILabel(frame: .zero)
     private let leadingButton = ElysInputAccessoryButton(frame: .zero)
     private let trailingBackgroundView = UIView(frame: .zero)
     private let trailingButton = ElysInputAccessoryButton(frame: .zero)
@@ -30,7 +30,11 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     private var expandedTrailingAction: ElysActionConfig?
     private var trailingAccessorySuppressed = false
     private var appliedLeadingIconMaxSize: CGFloat = -1
+    var inputText = ""
+    var inputPrefix: ElysInputPrefixConfig?
+    var isApplyingTextStorage = false
     var onTextChanged: ((String) -> Void)?
+    var onPrefixDeleted: ((String) -> Void)?
     var onSubmit: ((String) -> Void)?
     var onPreferredHeightChanged: (() -> Void)?
     var onAccessoryTapped: ((String) -> Void)?
@@ -78,15 +82,12 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
 
     func configure(_ config: ElysInputConfig) {
         placeholderLabel.text = config.placeholder
+        setPrefix(config.prefix)
         leadingAction = config.leadingAction
         collapsedTrailingAction = config.collapsedTrailingAction
         expandedTrailingAction = config.expandedTrailingAction
         configureAccessoryButtons()
-        if textView.text != config.text {
-            textView.text = config.text
-            updatePlaceholder()
-            notifyPreferredHeightChanged()
-        }
+        setText(config.text, notify: false)
     }
 
     func focus() {
@@ -133,11 +134,11 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func setText(_ text: String, notify: Bool) {
-        guard textView.text != text else { return }
-        textView.text = text
-        updatePlaceholder()
+        guard inputText != text else { return }
+        inputText = text
+        renderInputText(cursorBodyOffset: (text as NSString).length)
         notifyPreferredHeightChanged()
-        if notify { onTextChanged?(text) }
+        if notify { onTextChanged?(inputText) }
     }
 
     func setExpanded(_ expanded: Bool) {
@@ -179,19 +180,12 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         let minHeight = ceil(lineHeight + fixedInsets)
         let maxHeight = ceil(lineHeight * 4.5 + fixedInsets)
         let textWidth = max(1, width - ElysBarMetrics.expandedTextHorizontalInset * 2)
-        let measuringText = text.isEmpty ? " " : text
-        let bounds = (measuringText as NSString).boundingRect(
-            with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font],
-            context: nil
-        )
-        let measuredTextHeight = ceil(bounds.height)
+        let measuredTextHeight = measuredInputTextHeight(width: textWidth, font: font)
         return min(max(minHeight, measuredTextHeight + fixedInsets), maxHeight)
     }
 
     var text: String {
-        textView.text ?? ""
+        inputText
     }
 
     func updateCornerRadius(_ radius: CGFloat) {
@@ -270,11 +264,11 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         return hitAccessory(at: touch.location(in: self)) != nil
     }
 
-    private func updatePlaceholder() {
-        placeholderLabel.isHidden = !text.isEmpty
+    func updatePlaceholder() {
+        placeholderLabel.isHidden = inputPrefix != nil || !inputText.isEmpty
     }
 
-    private func notifyPreferredHeightChanged() {
+    func notifyPreferredHeightChanged() {
         guard expanded else { return }
         onPreferredHeightChanged?()
     }
@@ -542,8 +536,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func textViewDidChange(_ textView: UITextView) {
-        updatePlaceholder()
-        notifyPreferredHeightChanged()
-        onTextChanged?(text)
+        syncTextFromTextViewIfNeeded()
     }
 }
