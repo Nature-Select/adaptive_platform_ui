@@ -13,6 +13,7 @@ final class ElysLiquidBarView: UIView {
     let interactionCoordinator = ElysBarInteractionCoordinator()
     private var config: ElysBarConfig
     var layoutEmitScheduled = false
+    var barControlsRestoreGeneration = 0
     var pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
     var lastLayoutPayloadSignature: String?
     var keyboardDisplayLink: CADisplayLink?
