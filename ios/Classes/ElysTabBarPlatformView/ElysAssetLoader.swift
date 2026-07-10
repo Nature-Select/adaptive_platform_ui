@@ -40,8 +40,8 @@ final class ElysAssetLoader {
     ) -> UIImage? {
         let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let cacheable = !isMutableLocalReference(trimmed)
-        let key = "\(trimmed)|\(cacheKeySuffix)" as NSString
+        let cacheable = !Self.isMutableLocalReference(trimmed)
+        let key = "\(trimmed)|\(cacheKeySuffix)|s\(scale)" as NSString
         if cacheable, let cached = Self.processedImageCache.object(forKey: key) {
             return cached
         }
@@ -53,7 +53,7 @@ final class ElysAssetLoader {
         return processed
     }
 
-    private func isMutableLocalReference(_ path: String) -> Bool {
+    static func isMutableLocalReference(_ path: String) -> Bool {
         path.hasPrefix("file://") || path.hasPrefix("/") || path.hasPrefix("~/")
     }
 

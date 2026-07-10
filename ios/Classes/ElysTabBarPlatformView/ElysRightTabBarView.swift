@@ -62,6 +62,11 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
         guard configuredIconSize == iconSize,
               items.count == newTabs.count,
               tabs.count == newTabs.count else { return false }
+        // 可变本地文件（file:// 等）路径不变但内容可能已更新，复用会一直显示旧图。
+        guard !newTabs.contains(where: { tab in
+            ElysAssetLoader.isMutableLocalReference(tab.icon)
+                || ElysAssetLoader.isMutableLocalReference(tab.selectedIcon ?? "")
+        }) else { return false }
         return zip(tabs, newTabs).allSatisfy { old, new in
             old.id == new.id
                 && old.icon == new.icon

@@ -46,6 +46,7 @@ enum ElysBarMetrics {
     static let inputFontSize: CGFloat = 15
     static let expandedInputCornerRadius: CGFloat = 31
     static let glassMergeSpacing: CGFloat = 14
+    static let hiddenBarOverflow: CGFloat = 12
     static let animationDuration: TimeInterval = 0.32
     static let animationDamping: CGFloat = 0.86
     static let selectedPillAlpha: CGFloat = 0.55

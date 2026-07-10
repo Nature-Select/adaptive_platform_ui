@@ -82,6 +82,8 @@ final class ElysLiquidBarView: UIView {
     }
 
     func focusInput() {
+        // 隐藏态下聚焦会弹出键盘却看不到输入框，且用户无从关闭，直接忽略。
+        guard !barHidden else { return }
         if !interactionCoordinator.inputActive {
             setInputActive(true, animated: true, emit: true)
         }
@@ -257,7 +259,7 @@ final class ElysLiquidBarView: UIView {
                 keyboardTopY(state)
                     - ElysBarMetrics.inputKeyboardGap
                     - height
-            )
+            ) + hiddenBarShift(totalHeight: measuredLayout().totalHeight)
             : collapsedInputTopY()
         inputBar.frame = CGRect(x: inset, y: y, width: inputW, height: height)
         sideButton.frame = CGRect(x: bounds.width - inset - side, y: y, width: side, height: side)
@@ -269,10 +271,14 @@ final class ElysLiquidBarView: UIView {
         scheduleLayoutChanged(animationDuration: pendingLayoutAnimationDuration)
     }
 
+    // 隐藏 = 整条 bar 平移出平台视图底边（多 hiddenBarOverflow 余量盖住玻璃
+    // 高光），平台视图自身尺寸不变，Flutter 侧不会产生任何布局连锁。
+    private func hiddenBarShift(totalHeight: CGFloat) -> CGFloat {
+        barHidden ? totalHeight + ElysBarMetrics.hiddenBarOverflow : 0
+    }
+
     private func barTopY(for layout: ElysBarLayout) -> CGFloat {
-        // 隐藏 = 整条 bar 平移出平台视图底边（多 12pt 余量盖住玻璃高光），
-        // 平台视图自身尺寸不变，Flutter 侧不会产生任何布局连锁。
-        let hiddenShift = barHidden ? layout.totalHeight + 12 : 0
+        let hiddenShift = hiddenBarShift(totalHeight: layout.totalHeight)
         guard bounds.height > layout.totalHeight + 1 else { return hiddenShift }
         let keyboard = interactionCoordinator.renderState.keyboard
         let keyboardTop = keyboard.visible ? bounds.height - keyboard.height : bounds.height

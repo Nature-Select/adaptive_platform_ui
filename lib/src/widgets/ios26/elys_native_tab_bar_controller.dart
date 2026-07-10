@@ -12,8 +12,9 @@ class ElysNativeTabBarController {
   ///
   /// 动画完全在原生侧执行，不经过 Flutter 帧循环，平台视图的尺寸与
   /// Flutter 布局保持不变，因此不会触发 Scaffold/MediaQuery 的布局连锁，
-  /// 也没有平台视图逐帧 resize 的开销。隐藏期间 bar 区域的点击会穿透给
-  /// Flutter 内容。
+  /// 也没有平台视图逐帧 resize 的开销。隐藏动画完成后，bar 区域的点击会
+  /// 穿透给 Flutter 内容（动画进行中仍由 bar 占位）；隐藏期间 [focusInput]
+  /// 会被原生侧忽略。
   ///
   /// 业务侧做显隐请优先用本方法，不要用 SizeTransition/AnimatedContainer
   /// 之类改变尺寸的动画包裹本组件；若确需在 Flutter 侧自行过渡，用
