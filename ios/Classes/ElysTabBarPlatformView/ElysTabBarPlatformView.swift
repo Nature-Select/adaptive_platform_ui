@@ -47,6 +47,13 @@ final class ElysTabBarPlatformView: NSObject, FlutterPlatformView {
             let args = call.arguments as? [String: Any]
             rootView.setInputActive((args?["active"] as? NSNumber)?.boolValue ?? false)
             result(nil)
+        case "setBarHidden":
+            let args = call.arguments as? [String: Any]
+            rootView.setBarHidden(
+                (args?["hidden"] as? NSNumber)?.boolValue ?? false,
+                animated: (args?["animated"] as? NSNumber)?.boolValue ?? true
+            )
+            result(nil)
         case "setInputText":
             let args = call.arguments as? [String: Any]
             rootView.setInputText(args?["text"] as? String ?? "")

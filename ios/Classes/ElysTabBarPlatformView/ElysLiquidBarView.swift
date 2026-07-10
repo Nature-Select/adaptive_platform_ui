@@ -12,6 +12,11 @@ final class ElysLiquidBarView: UIView {
     let optionPresenter: ElysInputOptionPresenter
     let interactionCoordinator = ElysBarInteractionCoordinator()
     private var config: ElysBarConfig
+    private var iconConfigGeneration = 0
+    private var appliedIconGeneration = -1
+    private var appliedIconContentHeight: CGFloat = -1
+    var barHidden = false
+    var barHiddenRestoreGeneration = 0
     var layoutEmitScheduled = false
     var barControlsRestoreGeneration = 0
     var pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
@@ -52,7 +57,8 @@ final class ElysLiquidBarView: UIView {
     func apply(_ config: ElysBarConfig, animated: Bool = true) {
         self.config = config
         overrideUserInterfaceStyle = config.isDark ? .dark : .light
-        configureIcons()
+        iconConfigGeneration += 1
+        configureIconsIfNeeded()
         inputBar.configure(config.input)
         optionPresenter.configure(items: config.input.optionItems)
         setInputActive(config.inputActive, animated: animated, emit: false)
@@ -76,6 +82,8 @@ final class ElysLiquidBarView: UIView {
     }
 
     func focusInput() {
+        // 隐藏态下聚焦会弹出键盘却看不到输入框，且用户无从关闭，直接忽略。
+        guard !barHidden else { return }
         if !interactionCoordinator.inputActive {
             setInputActive(true, animated: true, emit: true)
         }
@@ -185,8 +193,14 @@ final class ElysLiquidBarView: UIView {
         )
     }
 
-    private func configureIcons() {
+    // 图标重配涉及磁盘读图 + UITabBarItem 重建，只允许在配置代际或实测高度
+    // 变化时执行；layoutSubviews 每帧都会走到这里（键盘/形态动画期间尤甚）。
+    private func configureIconsIfNeeded() {
         let layout = measuredLayout()
+        guard appliedIconGeneration != iconConfigGeneration
+            || appliedIconContentHeight != layout.contentHeight else { return }
+        appliedIconGeneration = iconConfigGeneration
+        appliedIconContentHeight = layout.contentHeight
         let iconSize = ElysBarMetrics.actionIconSize(for: layout.contentHeight)
         leadingButton.configure(action: config.leadingAction, iconSize: iconSize)
         tabBar.configure(
@@ -201,6 +215,7 @@ final class ElysLiquidBarView: UIView {
     }
 
     private func layoutNormal() {
+        configureIconsIfNeeded()
         let layout = measuredLayout()
         let barY = barTopY(for: layout)
         let inset = ElysBarMetrics.sideInset(for: bounds.width)
@@ -226,7 +241,6 @@ final class ElysLiquidBarView: UIView {
             height: controlHeight
         )
         leadingButton.updateCornerRadius(controlHeight / 2)
-        configureIcons()
     }
 
     func layoutInput(_ state: ElysBarRenderState) {
@@ -245,7 +259,7 @@ final class ElysLiquidBarView: UIView {
                 keyboardTopY(state)
                     - ElysBarMetrics.inputKeyboardGap
                     - height
-            )
+            ) + hiddenBarShift(totalHeight: measuredLayout().totalHeight)
             : collapsedInputTopY()
         inputBar.frame = CGRect(x: inset, y: y, width: inputW, height: height)
         sideButton.frame = CGRect(x: bounds.width - inset - side, y: y, width: side, height: side)
@@ -257,12 +271,19 @@ final class ElysLiquidBarView: UIView {
         scheduleLayoutChanged(animationDuration: pendingLayoutAnimationDuration)
     }
 
+    // 隐藏 = 整条 bar 平移出平台视图底边（多 hiddenBarOverflow 余量盖住玻璃
+    // 高光），平台视图自身尺寸不变，Flutter 侧不会产生任何布局连锁。
+    private func hiddenBarShift(totalHeight: CGFloat) -> CGFloat {
+        barHidden ? totalHeight + ElysBarMetrics.hiddenBarOverflow : 0
+    }
+
     private func barTopY(for layout: ElysBarLayout) -> CGFloat {
-        guard bounds.height > layout.totalHeight + 1 else { return 0 }
+        let hiddenShift = hiddenBarShift(totalHeight: layout.totalHeight)
+        guard bounds.height > layout.totalHeight + 1 else { return hiddenShift }
         let keyboard = interactionCoordinator.renderState.keyboard
         let keyboardTop = keyboard.visible ? bounds.height - keyboard.height : bounds.height
         let anchorBottom = min(bounds.height, keyboardTop)
-        return max(0, anchorBottom - layout.totalHeight)
+        return max(0, anchorBottom - layout.totalHeight) + hiddenShift
     }
 
     private func collapsedInputTopY() -> CGFloat {
