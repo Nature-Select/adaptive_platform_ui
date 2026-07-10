@@ -150,8 +150,8 @@ extension ElysLiquidBarView {
         leadingButton.setContentVisible(state.tabControlsVisible)
         // UITabBar 永远不做 alpha 渐变：iOS 26 的 UITabBar 私有液态玻璃在
         // alpha < 1 时合成退化，会渲染出全宽玻璃底板 + 错位图标残影（模拟器
-        // 逐帧实锤）。tab 侧只用纯平移进出（setBarHidden 已验证平移无残影），
-        // 静止态由 setInputActive 切 isHidden。
+        // 逐帧实锤）。tab 侧只用 transform（translate+scale 经逐帧验证安全）
+        // 进出，静止态由 setInputActive 切 isHidden。
         leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
         tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
     }
@@ -169,12 +169,19 @@ extension ElysLiquidBarView {
     }
 
     func hiddenTabTransform() -> CGAffineTransform {
-        // 纯垂直平移滑出平台视图底边，不缩放不渐变——这是对 UITabBar 唯一
-        // 安全的退场方式（透明度/缩放都会触碰它的私有玻璃渲染）。
-        CGAffineTransform(
-            translationX: 0,
-            y: tabBar.bounds.height + ElysBarMetrics.hiddenBarOverflow
-        )
+        // 收进右侧 side 按钮：与「输入胶囊 ↔ 左侧入口按钮」对称的吸收观感
+        // （tab 组收拢成当前 tab）。只用 translate + scale，UITabBar 严禁
+        // alpha/effect 动画；bounds 已由 center+bounds 布局免疫 transform。
+        // 兜底（尺寸未就绪时）：垂直滑出底边。
+        guard tabBar.bounds.width > 1, sideButton.bounds.width > 1 else {
+            return CGAffineTransform(
+                translationX: 0,
+                y: tabBar.bounds.height + ElysBarMetrics.hiddenBarOverflow
+            )
+        }
+        let scale = max(0.1, sideButton.bounds.width / tabBar.bounds.width)
+        let shift = sideButton.center.x - tabBar.center.x
+        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: scale, y: scale)
     }
 
     func hiddenInputTransform() -> CGAffineTransform {
