@@ -52,12 +52,16 @@ final class ElysActionButton: UIControl {
         glassView.layer.cornerRadius = radius
     }
 
-    // 玻璃视图不允许动画容器 alpha（部分透明时 effect 合成退化，闪出矩形
-    // 底板）；显隐走 Apple 支持的 effect 淡入淡出 + 非玻璃内容 alpha。
+    // 只管非玻璃内容；玻璃开关由 ElysLiquidBarView 按切换时序编排——
+    // effect 的消融/物化过渡在动画飞行中会渲染出灰色玻璃底板（视频逐帧
+    // 实锤），只允许在静止态无感切换。
     func setContentVisible(_ visible: Bool) {
-        glassView.effect = visible ? glassEffect : nil
         imageView.alpha = visible ? 1 : 0
         badgeLabel.alpha = visible ? 1 : 0
+    }
+
+    func setGlassVisible(_ visible: Bool) {
+        glassView.effect = visible ? glassEffect : nil
     }
 
     private func setup() {
