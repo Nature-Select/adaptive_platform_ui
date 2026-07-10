@@ -47,6 +47,7 @@ class _ElysTabBarPlatformViewDemoPageState
   int _flutterTestTapCount = 0;
   bool _photoOptionEnabled = false;
   bool _showInputPrefix = true;
+  bool _barHidden = false;
   ElysBarLayoutEvent? _barLayout;
   final _barController = ElysNativeTabBarController();
 
@@ -156,6 +157,15 @@ class _ElysTabBarPlatformViewDemoPageState
       _lastEvent = 'prefix restored';
     });
     await _barController.updateInputPrefix(_inputPrefix);
+  }
+
+  Future<void> _toggleBarHidden() async {
+    final hidden = !_barHidden;
+    setState(() {
+      _barHidden = hidden;
+      _lastEvent = hidden ? 'bar hidden' : 'bar shown';
+    });
+    await _barController.setBarHidden(hidden);
   }
 
   void _recordFlutterTestTap(String source) {
@@ -342,6 +352,21 @@ class _ElysTabBarPlatformViewDemoPageState
                 tapCount: _flutterTestTapCount,
                 onPrimaryPressed: () => _recordFlutterTestTap('dock A'),
                 onSecondaryPressed: () => _recordFlutterTestTap('dock B'),
+              ),
+              Positioned(
+                top: 0,
+                right: 16,
+                child: SafeArea(
+                  bottom: false,
+                  child: CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    onPressed: _toggleBarHidden,
+                    child: Text(_barHidden ? '显示底栏' : '隐藏底栏'),
+                  ),
+                ),
               ),
             ],
           ),

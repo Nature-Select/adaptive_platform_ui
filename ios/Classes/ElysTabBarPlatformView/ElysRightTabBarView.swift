@@ -5,6 +5,7 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
     private let tabBar = UITabBar(frame: .zero)
     private let assetLoader: ElysAssetLoader
     private var tabs: [ElysTabConfig] = []
+    private var configuredIconSize: CGFloat?
     var onSelect: ((ElysTabConfig, Int) -> Void)?
 
     init(assetLoader: ElysAssetLoader) {
@@ -28,15 +29,45 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
         iconSize: CGFloat,
         isDark: Bool
     ) {
-        self.tabs = tabs
         overrideUserInterfaceStyle = isDark ? .dark : .light
-        let items = tabs.enumerated().map { index, tab in
-            makeItem(for: tab, index: index, iconSize: iconSize)
+        // 整组替换 tabBar.items 会销毁重建所有 UITabBarButton，正在播放的
+        // 选中动画会被掐断；Flutter 侧 setConfig 回写选中态时必须走复用路径。
+        if let items = tabBar.items, canReuseItems(items, for: tabs, iconSize: iconSize) {
+            for (index, item) in items.enumerated()
+            where self.tabs[index].badgeCount != tabs[index].badgeCount {
+                NativeTabBarBadgeStyle.setBadgeCount(tabs[index].badgeCount, on: item)
+            }
+            self.tabs = tabs
+        } else {
+            self.tabs = tabs
+            configuredIconSize = iconSize
+            tabBar.items = tabs.enumerated().map { index, tab in
+                makeItem(for: tab, index: index, iconSize: iconSize)
+            }
         }
-        tabBar.items = items
-        tabBar.selectedItem = items.first { item in
+        let items = tabBar.items ?? []
+        let selected = items.first { item in
             tabs.indices.contains(item.tag) && tabs[item.tag].id == selectedId
         } ?? items.first
+        if tabBar.selectedItem !== selected {
+            tabBar.selectedItem = selected
+        }
+    }
+
+    private func canReuseItems(
+        _ items: [UITabBarItem],
+        for newTabs: [ElysTabConfig],
+        iconSize: CGFloat
+    ) -> Bool {
+        guard configuredIconSize == iconSize,
+              items.count == newTabs.count,
+              tabs.count == newTabs.count else { return false }
+        return zip(tabs, newTabs).allSatisfy { old, new in
+            old.id == new.id
+                && old.icon == new.icon
+                && old.selectedIcon == new.selectedIcon
+                && old.accessibilityLabel == new.accessibilityLabel
+        }
     }
 
     func itemVisualCenterY() -> CGFloat? {

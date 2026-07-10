@@ -2,6 +2,40 @@ import UIKit
 
 @available(iOS 26.0, *)
 extension ElysLiquidBarView {
+    func setBarHidden(_ hidden: Bool, animated: Bool) {
+        guard hidden != barHidden else { return }
+        barHidden = hidden
+        barHiddenRestoreGeneration += 1
+        let generation = barHiddenRestoreGeneration
+        if hidden, interactionCoordinator.inputActive {
+            inputBar.blur()
+        }
+        // 隐藏完成后必须 isHidden，否则透明的 rootView 仍会吞掉底部区域的
+        // 点击，Flutter 侧内容收不到手势；显示前先解除。
+        if !hidden { isHidden = false }
+        pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
+        let changes = {
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
+        }
+        guard animated else {
+            changes()
+            isHidden = hidden
+            return
+        }
+        UIView.animate(
+            withDuration: ElysBarMetrics.animationDuration,
+            delay: 0,
+            usingSpringWithDamping: 1,
+            initialSpringVelocity: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction],
+            animations: changes
+        ) { _ in
+            guard generation == self.barHiddenRestoreGeneration else { return }
+            if self.barHidden { self.isHidden = true }
+        }
+    }
+
     func setInputActive(_ active: Bool, animated: Bool, emit: Bool) {
         let oldState = interactionCoordinator.renderState
         guard oldState.inputActive != active || !animated else { return }

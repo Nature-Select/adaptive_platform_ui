@@ -4,20 +4,57 @@ import UIKit
 @available(iOS 26.0, *)
 final class ElysAssetLoader {
     private weak var registrar: FlutterPluginRegistrar?
+    // Bundle 资源在一次安装内不可变，可以按「路径+目标尺寸」缓存处理后的图；
+    // file:// 、绝对路径、~/ 指向的文件可能在运行期被覆写，不能进缓存。
+    private static let processedImageCache = NSCache<NSString, UIImage>()
 
     init(registrar: FlutterPluginRegistrar) {
         self.registrar = registrar
     }
 
     func image(named rawPath: String, size: CGSize, template: Bool = false) -> UIImage? {
-        guard let image = loadImage(rawPath) else { return nil }
-        let mode: UIImage.RenderingMode = template ? .alwaysTemplate : .alwaysOriginal
-        return resize(image, to: size).withRenderingMode(mode)
+        processedImage(
+            rawPath: rawPath,
+            cacheKeySuffix: "sized|\(size.width)x\(size.height)|\(template)"
+        ) { image in
+            let mode: UIImage.RenderingMode = template ? .alwaysTemplate : .alwaysOriginal
+            return resize(image, to: size).withRenderingMode(mode)
+        }
     }
 
     func imageAspectFit(named rawPath: String, maxSize: CGSize) -> UIImage? {
-        guard let image = loadImage(rawPath, scale: UIScreen.main.scale) else { return nil }
-        return aspectFit(image, maxSize: maxSize).withRenderingMode(.alwaysOriginal)
+        processedImage(
+            rawPath: rawPath,
+            scale: UIScreen.main.scale,
+            cacheKeySuffix: "fit|\(maxSize.width)x\(maxSize.height)"
+        ) { image in
+            aspectFit(image, maxSize: maxSize).withRenderingMode(.alwaysOriginal)
+        }
+    }
+
+    private func processedImage(
+        rawPath: String,
+        scale: CGFloat = 1,
+        cacheKeySuffix: String,
+        process: (UIImage) -> UIImage
+    ) -> UIImage? {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cacheable = !isMutableLocalReference(trimmed)
+        let key = "\(trimmed)|\(cacheKeySuffix)" as NSString
+        if cacheable, let cached = Self.processedImageCache.object(forKey: key) {
+            return cached
+        }
+        guard let image = loadImage(trimmed, scale: scale) else { return nil }
+        let processed = process(image)
+        if cacheable {
+            Self.processedImageCache.setObject(processed, forKey: key)
+        }
+        return processed
+    }
+
+    private func isMutableLocalReference(_ path: String) -> Bool {
+        path.hasPrefix("file://") || path.hasPrefix("/") || path.hasPrefix("~/")
     }
 
     private func loadImage(_ rawPath: String, scale: CGFloat = 1) -> UIImage? {
