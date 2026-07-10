@@ -40,6 +40,9 @@ extension ElysLiquidBarView {
         let oldState = interactionCoordinator.renderState
         guard oldState.inputActive != active || !animated else { return }
         interactionCoordinator.setInputActive(active, emitCloseEvent: emit)
+        if active && !oldState.inputActive {
+            inputModeEnteredAt = CACurrentMediaTime()
+        }
         let state = interactionCoordinator.renderState
         pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
         if active {

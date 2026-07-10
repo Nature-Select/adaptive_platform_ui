@@ -17,6 +17,7 @@ final class ElysLiquidBarView: UIView {
     private var appliedIconContentHeight: CGFloat = -1
     var barHidden = false
     var barHiddenRestoreGeneration = 0
+    var inputModeEnteredAt: CFTimeInterval = 0
     var layoutEmitScheduled = false
     var barControlsRestoreGeneration = 0
     var pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
@@ -159,6 +160,12 @@ final class ElysLiquidBarView: UIView {
         }
         inputBar.onLeadingAccessoryTapped = { [weak self] id, sourceView in
             guard let self else { return }
+            // 更多按钮与 tab 态入口按钮同位同型互换：非输入态一律不响应（显式
+            // 不变量），刚进输入态的栅栏期内视为对旧入口按钮的重复误触，直接
+            // 吞掉——#13 的 0.32s 动画冻结盖不住秒级的人因重复点击。
+            guard self.interactionCoordinator.inputActive,
+                  CACurrentMediaTime() - self.inputModeEnteredAt
+                      > ElysBarMetrics.inputOptionsGraceInterval else { return }
             if self.optionPresenter.hasItems {
                 self.presentInputOptions(from: sourceView)
             } else {
@@ -287,7 +294,10 @@ final class ElysLiquidBarView: UIView {
         let hiddenShift = hiddenBarShift(totalHeight: layout.totalHeight)
         guard bounds.height > layout.totalHeight + 1 else { return hiddenShift }
         let keyboard = interactionCoordinator.renderState.keyboard
-        let keyboardTop = keyboard.visible ? bounds.height - keyboard.height : bounds.height
+        // 只有本 bar 自己的输入态才随键盘抬升；页面上其他输入框（Flutter 侧）
+        // 弹键盘时 bar 保持原位，避免入口按钮漂移到内容区造成误触。
+        let liftsAboveKeyboard = keyboard.visible && interactionCoordinator.inputActive
+        let keyboardTop = liftsAboveKeyboard ? bounds.height - keyboard.height : bounds.height
         let anchorBottom = min(bounds.height, keyboardTop)
         return max(0, anchorBottom - layout.totalHeight) + hiddenShift
     }

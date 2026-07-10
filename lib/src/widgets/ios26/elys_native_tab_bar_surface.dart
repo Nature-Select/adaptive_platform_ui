@@ -34,7 +34,9 @@ class _ElysNativeSurfaceCoordinator {
   Duration _animationDuration = const Duration(milliseconds: 250);
 
   _ElysNativeSurfaceMode get mode {
-    if (_keyboardInset > 0) return _ElysNativeSurfaceMode.keyboard;
+    // 键盘模式必须以本 bar 的输入态为前提：页面上其他输入框弹键盘时，
+    // 平台视图不能扩成全屏去接管整屏触摸（bar 也不该抬升）。
+    if (_inputActive && _keyboardInset > 0) return _ElysNativeSurfaceMode.keyboard;
     if (_inputActive) return _ElysNativeSurfaceMode.inputCollapsed;
     return _ElysNativeSurfaceMode.tabBar;
   }

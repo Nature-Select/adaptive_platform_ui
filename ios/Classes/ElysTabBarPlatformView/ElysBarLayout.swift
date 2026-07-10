@@ -48,6 +48,9 @@ enum ElysBarMetrics {
     static let glassMergeSpacing: CGFloat = 14
     static let hiddenBarOverflow: CGFloat = 12
     static let animationDuration: TimeInterval = 0.32
+    // 入口按钮 → 输入更多按钮同位互换后的误触栅栏：动画冻结（0.32s）只挡得住
+    // 动画期内的连点，人因重复点击（“没点上再点一下”）在秒级，需要更宽的窗口。
+    static let inputOptionsGraceInterval: TimeInterval = 0.6
     static let animationDamping: CGFloat = 0.86
     static let selectedPillAlpha: CGFloat = 0.55
     static let darkSelectedPillAlpha: CGFloat = 0.18
