@@ -154,7 +154,9 @@ extension ElysLiquidBarView {
     }
 
     func hiddenLeadingTransform() -> CGAffineTransform {
-        CGAffineTransform(translationX: -20, y: 0).scaledBy(x: 0.88, y: 0.88)
+        // 原地缩小、不平移：入口按钮的隐藏态必须完整藏在输入胶囊左端下面，
+        // 向左平移会把它的玻璃拖出胶囊轮廓，merge 团在胶囊左缘鼓包。
+        CGAffineTransform(scaleX: 0.88, y: 0.88)
     }
 
     func hiddenTabTransform() -> CGAffineTransform {
@@ -169,9 +171,12 @@ extension ElysLiquidBarView {
         guard inputBar.bounds.width > 1, leadingButton.bounds.width > 1 else {
             return CGAffineTransform(translationX: -22, y: 0).scaledBy(x: 0.28, y: 0.90)
         }
-        let scale = max(0.18, leadingButton.bounds.width / inputBar.bounds.width)
+        // 等比缩放且只到按钮宽度的 0.72：非等比缩放会把胶囊压成圆角近方形，
+        // 叠在按钮正圆上时 merge 轮廓瞬间凸起；等比小胶囊完整落在圆内，
+        // 玻璃开关对轮廓零扰动。
+        let scale = max(0.12, leadingButton.bounds.width * 0.72 / inputBar.bounds.width)
         let shift = leadingButton.center.x - inputBar.center.x
-        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: scale, y: 0.92)
+        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: scale, y: scale)
     }
 
     func hiddenSideTransform() -> CGAffineTransform {
