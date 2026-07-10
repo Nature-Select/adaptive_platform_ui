@@ -66,6 +66,9 @@ extension ElysLiquidBarView {
             self.applyInputRenderState(state)
         }
         if animated {
+            // 玻璃开关只在胶囊与入口按钮完全重合（吸收态）时切换，飞行途中
+            // 保持开启：effect 消融/物化的过渡会把玻璃底板整块渲染出来。
+            if active { inputBar.setGlassVisible(true) }
             UIView.animate(
                 withDuration: ElysBarMetrics.morphAnimationDuration,
                 delay: 0,
@@ -74,6 +77,9 @@ extension ElysLiquidBarView {
                 options: [.allowUserInteraction, .beginFromCurrentState],
                 animations: changes
             ) { _ in
+                if !self.interactionCoordinator.inputActive {
+                    self.inputBar.setGlassVisible(false)
+                }
                 self.blankTapView.isHidden = !active
                 self.blankTapView.isUserInteractionEnabled = active
                 if !active && !self.interactionCoordinator.keyboardVisible {
@@ -82,6 +88,7 @@ extension ElysLiquidBarView {
             }
         } else {
             changes()
+            inputBar.setGlassVisible(active)
             blankTapView.isHidden = !active
             blankTapView.isUserInteractionEnabled = active
             if !active { inputBar.finishDismissalAnimation() }
@@ -117,8 +124,16 @@ extension ElysLiquidBarView {
     }
 
     func hiddenInputTransform() -> CGAffineTransform {
-        let shift = -max(22, inputBar.bounds.width * 0.36)
-        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: 0.28, y: 0.90)
+        // 收起终点对齐入口按钮正中、缩到与按钮同宽：胶囊被按钮的玻璃完整
+        // “吸收”（同一 glass container 渲染为一个 blob），玻璃全程保持开启
+        // 也不会有多余的形状滑过按钮。旧终点是向左平移 36% 宽，会飞出按钮
+        // 甚至屏幕左缘，退场轨迹整条可见。
+        guard inputBar.bounds.width > 1, leadingButton.bounds.width > 1 else {
+            return CGAffineTransform(translationX: -22, y: 0).scaledBy(x: 0.28, y: 0.90)
+        }
+        let scale = max(0.18, leadingButton.bounds.width / inputBar.bounds.width)
+        let shift = leadingButton.center.x - inputBar.center.x
+        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: scale, y: 0.92)
     }
 
     func hiddenSideTransform() -> CGAffineTransform {

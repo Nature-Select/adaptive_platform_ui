@@ -51,15 +51,18 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         setup()
     }
 
-    // 玻璃视图不允许动画容器 alpha（部分透明时 effect 合成退化，闪出矩形
-    // 底板）；显隐走 effect 淡入淡出 + 非玻璃内容 alpha。trailing 侧的
-    // alpha 由 suppression 状态机独立管理，这里不碰。
+    // 只管非玻璃内容的显隐；玻璃的开关由 ElysLiquidBarView 按形态切换的
+    // 时序单独编排（飞行中不能消融，否则玻璃底板会以灰色矩形滑过入口按钮）。
+    // trailing 侧的 alpha 由 suppression 状态机独立管理，这里不碰。
     func setContentVisible(_ visible: Bool) {
-        glassView.effect = visible ? glassEffect : nil
         let alpha: CGFloat = visible ? 1 : 0
         textView.alpha = alpha
         placeholderLabel.alpha = alpha
         leadingButton.alpha = alpha
+    }
+
+    func setGlassVisible(_ visible: Bool) {
+        glassView.effect = visible ? glassEffect : nil
     }
 
     required init?(coder: NSCoder) {
