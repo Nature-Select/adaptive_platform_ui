@@ -39,7 +39,7 @@ extension ElysLiquidBarView {
     func setInputActive(_ active: Bool, animated: Bool, emit: Bool) {
         let oldState = interactionCoordinator.renderState
         guard oldState.inputActive != active || !animated else { return }
-        interactionCoordinator.setInputActive(active, emitCloseEvent: emit)
+        interactionCoordinator.setInputActive(active)
         if active && !oldState.inputActive {
             inputModeEnteredAt = CACurrentMediaTime()
         }
@@ -48,24 +48,24 @@ extension ElysLiquidBarView {
         if active {
             inputBar.finishDismissalAnimation()
             inputBar.setTrailingAccessorySuppressed(false)
-            if emit { onEvent?("inputModeChanged", ["active": true]) }
         } else {
             optionPresenter.dismiss(animated: animated)
             inputBar.blur()
             inputBar.prepareForDismissalAnimation()
         }
+        // 两个方向都立即投递：关闭事件此前排队到动画完成/键盘收起后才发，
+        // App 侧切换会滞后 0.3-0.5s+；改为原生动画与业务响应并行。
+        if emit { onEvent?("inputModeChanged", ["active": active]) }
         if active { blankTapView.isHidden = false }
         blankTapView.isUserInteractionEnabled = active
-        barControlsRestoreGeneration += 1
-        let generation = barControlsRestoreGeneration
+        // 交互按终值立即生效，不再整条冻结动画窗口：退场控件的 model alpha
+        // 已为 0、UIKit 命中测试天然跳过；入场侧唯一的误触风险（入口→更多
+        // 同位互换）由 inputOptionsGraceInterval 栅栏单点兜底。
+        setBarControlsInteraction(inputActive: active)
         let changes = {
             self.applyInputRenderState(state)
         }
         if animated {
-            // 形态切换期间左下角入口按钮与输入“更多”按钮在同一位置互换，
-            // UIKit 命中测试按 model layer 终值生效；若不冻结命中，动画播放
-            // 期间的连点会直接命中新形态控件（例如误弹输入更多菜单）。
-            setBarControlsInteraction(inputActive: active, morphing: true)
             UIView.animate(
                 withDuration: ElysBarMetrics.animationDuration,
                 delay: 0,
@@ -74,34 +74,25 @@ extension ElysLiquidBarView {
                 options: [.allowUserInteraction, .beginFromCurrentState],
                 animations: changes
             ) { _ in
-                if generation == self.barControlsRestoreGeneration {
-                    self.setBarControlsInteraction(
-                        inputActive: self.interactionCoordinator.inputActive,
-                        morphing: false
-                    )
-                }
                 self.blankTapView.isHidden = !active
                 self.blankTapView.isUserInteractionEnabled = active
                 if !active && !self.interactionCoordinator.keyboardVisible {
                     self.inputBar.finishDismissalAnimation()
-                    self.flushPendingCloseEvents()
                 }
             }
         } else {
-            setBarControlsInteraction(inputActive: active, morphing: false)
             changes()
             blankTapView.isHidden = !active
             blankTapView.isUserInteractionEnabled = active
             if !active { inputBar.finishDismissalAnimation() }
-            if !active { flushPendingCloseEvents() }
         }
     }
 
-    private func setBarControlsInteraction(inputActive: Bool, morphing: Bool) {
-        leadingButton.isUserInteractionEnabled = !morphing && !inputActive
-        tabBar.isUserInteractionEnabled = !morphing && !inputActive
-        inputBar.isUserInteractionEnabled = !morphing && inputActive
-        sideButton.isUserInteractionEnabled = !morphing && inputActive
+    private func setBarControlsInteraction(inputActive: Bool) {
+        leadingButton.isUserInteractionEnabled = !inputActive
+        tabBar.isUserInteractionEnabled = !inputActive
+        inputBar.isUserInteractionEnabled = inputActive
+        sideButton.isUserInteractionEnabled = inputActive
     }
 
     func applyInputRenderState(_ state: ElysBarRenderState) {

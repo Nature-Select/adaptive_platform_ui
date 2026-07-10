@@ -65,7 +65,6 @@ extension ElysLiquidBarView {
         if !interactionCoordinator.inputActive {
             inputBar.finishDismissalAnimation()
         }
-        flushPendingCloseEvents()
     }
 
     private func animateKeyboardRenderState(
@@ -133,11 +132,5 @@ extension ElysLiquidBarView {
                 self.layoutInput(self.interactionCoordinator.renderState)
             }
         )
-    }
-
-    func flushPendingCloseEvents() {
-        for (method, payload) in interactionCoordinator.takePendingEvents() {
-            onEvent?(method, payload)
-        }
     }
 }
