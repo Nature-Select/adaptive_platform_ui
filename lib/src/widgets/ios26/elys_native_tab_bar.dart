@@ -41,6 +41,13 @@ class ElysNativeTabBar extends StatefulWidget {
   final ElysNativeTabBarController? controller;
   final ElysBarAction leadingAction;
   final List<ElysBarTab> tabs;
+
+  /// Initial selected tab id, applied on platform view creation only.
+  ///
+  /// Runtime selection changes go through
+  /// [ElysNativeTabBarController.setSelectedTab], which is a lightweight
+  /// channel call and skips the echo when native itself initiated the
+  /// selection. Updating this field after creation has no effect.
   final String selectedTabId;
   final bool inputActive;
   final ElysInputConfig inputConfig;
@@ -69,12 +76,18 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
   ElysBarLayoutEvent? _lastLayout;
   late final _ElysNativeSurfaceCoordinator _surface;
 
+  /// Shadow of the selection native currently shows. Updated by native
+  /// `tabSelected` events and by [_setSelectedTab] pushes, so echoes are
+  /// dropped and `setConfig` payloads always carry the live selection.
+  late String _currentSelectedTabId;
+
   bool get _isDark =>
       MediaQuery.platformBrightnessOf(context) == Brightness.dark;
 
   @override
   void initState() {
     super.initState();
+    _currentSelectedTabId = widget.selectedTabId;
     _surface = _ElysNativeSurfaceCoordinator(inputActive: widget.inputActive);
     widget.controller?._attach(this);
   }
@@ -140,13 +153,22 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
   Map<String, Object?> _config() => {
     'leadingAction': widget.leadingAction.toMap(),
     'tabs': widget.tabs.map((tab) => tab.toMap()).toList(),
-    'selectedTabId': widget.selectedTabId,
+    'selectedTabId': _currentSelectedTabId,
     'inputActive': widget.inputActive,
     'input': widget.inputConfig.toMap(),
     'isDark': _isDark,
   };
 
-  String _signature() => _config().toString();
+  /// Selection is excluded from the sync signature: it is kept in sync via
+  /// the lightweight `setSelectedTab` channel call (or native's own tap),
+  /// and must not trigger a full `setConfig` push on its own.
+  String _signature() => (_config()..remove('selectedTabId')).toString();
+
+  Future<void> _setSelectedTab(String id) {
+    if (_currentSelectedTabId == id) return Future.value();
+    _currentSelectedTabId = id;
+    return _invoke('setSelectedTab', {'id': id});
+  }
 
   void _onCreated(int id) {
     final channel = MethodChannel('elys_platform_ui/tab_bar_$id');
@@ -161,7 +183,12 @@ class _ElysNativeTabBarState extends State<ElysNativeTabBar> {
     switch (call.method) {
       case 'tabSelected':
         final id = args?['id'] as String?;
-        if (id != null) widget.onTabSelected(id);
+        if (id != null) {
+          // Native already rendered this selection; recording it here makes
+          // the Dart-side echo a no-op instead of a full setConfig push.
+          _currentSelectedTabId = id;
+          widget.onTabSelected(id);
+        }
         break;
       case 'leadingActionTapped':
         widget.onLeadingAction?.call(ElysBarActionEvent(id: '${args?['id']}'));

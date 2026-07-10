@@ -65,6 +65,12 @@ final class ElysLiquidBarView: UIView {
         setNeedsLayout()
     }
 
+    func setSelectedTab(_ id: String) {
+        guard config.selectedTabId != id else { return }
+        config.selectedTabId = id
+        tabBar.setSelected(id: id)
+    }
+
     func setInputActive(_ active: Bool) {
         setInputActive(active, animated: true, emit: true)
     }
