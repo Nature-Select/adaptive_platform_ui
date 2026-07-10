@@ -52,9 +52,9 @@ enum ElysBarMetrics {
     // 弹性手感——入场元素带可见过冲再回弹（damping ≈ 0.68 相当于 bounce 0.3）。
     // 交互与事件投递已即时生效（#18），弹簧的收尾余摆不阻塞任何操作；
     // 显隐（setBarHidden）、键盘跟随、输入框高度变化仍用上面的常规参数。
-    static let morphAnimationDuration: TimeInterval = 0.55
-    static let morphAnimationDamping: CGFloat = 0.68
-    static let morphInitialVelocity: CGFloat = 0.35
+    static let morphAnimationDuration: TimeInterval = 0.45
+    static let morphAnimationDamping: CGFloat = 0.76
+    static let morphInitialVelocity: CGFloat = 0.25
     // 入口按钮 → 输入更多按钮同位互换后的误触栅栏：动画冻结（0.32s）只挡得住
     // 动画期内的连点，人因重复点击（“没点上再点一下”）在秒级，需要更宽的窗口。
     static let inputOptionsGraceInterval: TimeInterval = 0.6
