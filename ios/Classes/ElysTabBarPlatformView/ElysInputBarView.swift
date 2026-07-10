@@ -12,6 +12,7 @@ private final class ElysInputAccessoryButton: UIButton {
 @available(iOS 26.0, *)
 final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDelegate {
     let assetLoader: ElysAssetLoader
+    private let glassEffect: UIGlassEffect
     private let glassView: UIVisualEffectView
     let textView = UITextView(frame: .zero)
     let placeholderLabel = UILabel(frame: .zero)
@@ -44,9 +45,21 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         self.assetLoader = assetLoader
         let effect = UIGlassEffect(style: .regular)
         effect.isInteractive = true
+        glassEffect = effect
         glassView = UIVisualEffectView(effect: effect)
         super.init(frame: frame)
         setup()
+    }
+
+    // 玻璃视图不允许动画容器 alpha（部分透明时 effect 合成退化，闪出矩形
+    // 底板）；显隐走 effect 淡入淡出 + 非玻璃内容 alpha。trailing 侧的
+    // alpha 由 suppression 状态机独立管理，这里不碰。
+    func setContentVisible(_ visible: Bool) {
+        glassView.effect = visible ? glassEffect : nil
+        let alpha: CGFloat = visible ? 1 : 0
+        textView.alpha = alpha
+        placeholderLabel.alpha = alpha
+        leadingButton.alpha = alpha
     }
 
     required init?(coder: NSCoder) {
@@ -91,7 +104,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func focus() {
-        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
         guard window != nil else { DispatchQueue.main.async { [weak self] in self?.focus() }; return }
         textView.becomeFirstResponder()
@@ -114,8 +126,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func prepareForDismissalAnimation() {
-        layer.rasterizationScale = UIScreen.main.scale
-        layer.shouldRasterize = true
         textView.isUserInteractionEnabled = false
         setTrailingAccessorySuppressed(true)
         textView.isScrollEnabled = false
@@ -129,7 +139,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func finishDismissalAnimation() {
-        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
     }
 

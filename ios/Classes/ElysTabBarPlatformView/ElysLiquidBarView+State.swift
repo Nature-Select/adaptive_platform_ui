@@ -97,10 +97,10 @@ extension ElysLiquidBarView {
 
     func applyInputRenderState(_ state: ElysBarRenderState) {
         layoutInput(state)
-        leadingButton.alpha = state.tabControlsVisible ? 1 : 0
+        leadingButton.setContentVisible(state.tabControlsVisible)
         tabBar.alpha = state.tabControlsVisible ? 1 : 0
-        inputBar.alpha = state.inputVisible ? 1 : 0
-        sideButton.alpha = state.sideButtonVisible ? 1 : 0
+        inputBar.setContentVisible(state.inputVisible)
+        sideButton.setContentVisible(state.sideButtonVisible)
         blankTapView.alpha = state.inputVisible ? 1 : 0
         leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
         tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
