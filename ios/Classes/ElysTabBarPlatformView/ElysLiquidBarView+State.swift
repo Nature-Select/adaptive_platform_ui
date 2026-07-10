@@ -66,9 +66,16 @@ extension ElysLiquidBarView {
             self.applyInputRenderState(state)
         }
         if animated {
-            // 玻璃开关只在胶囊与入口按钮完全重合（吸收态）时切换，飞行途中
-            // 保持开启：effect 消融/物化的过渡会把玻璃底板整块渲染出来。
-            if active { inputBar.setGlassVisible(true) }
+            // 玻璃 effect 只在静止态切换，飞行途中永不过渡（消融/物化过渡会
+            // 把玻璃底板整块渲染出来）：进场元素动画前无感开启（起点被覆盖或
+            // 即将弹出），退场元素保持开启带着玻璃退场，completion 按当前状态
+            // 收尾关闭。
+            if active {
+                inputBar.setGlassVisible(true)
+                sideButton.setGlassVisible(true)
+            } else {
+                leadingButton.setGlassVisible(true)
+            }
             UIView.animate(
                 withDuration: ElysBarMetrics.morphAnimationDuration,
                 delay: 0,
@@ -77,9 +84,10 @@ extension ElysLiquidBarView {
                 options: [.allowUserInteraction, .beginFromCurrentState],
                 animations: changes
             ) { _ in
-                if !self.interactionCoordinator.inputActive {
-                    self.inputBar.setGlassVisible(false)
-                }
+                let inputActiveNow = self.interactionCoordinator.inputActive
+                self.inputBar.setGlassVisible(inputActiveNow)
+                self.sideButton.setGlassVisible(inputActiveNow)
+                self.leadingButton.setGlassVisible(!inputActiveNow)
                 self.blankTapView.isHidden = !active
                 self.blankTapView.isUserInteractionEnabled = active
                 if !active && !self.interactionCoordinator.keyboardVisible {
@@ -89,6 +97,8 @@ extension ElysLiquidBarView {
         } else {
             changes()
             inputBar.setGlassVisible(active)
+            sideButton.setGlassVisible(active)
+            leadingButton.setGlassVisible(!active)
             blankTapView.isHidden = !active
             blankTapView.isUserInteractionEnabled = active
             if !active { inputBar.finishDismissalAnimation() }

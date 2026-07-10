@@ -124,6 +124,7 @@ final class ElysLiquidBarView: UIView {
         inputBar.setContentVisible(false)
         inputBar.setGlassVisible(false)
         sideButton.setContentVisible(false)
+        sideButton.setGlassVisible(false)
         inputBar.transform = hiddenInputTransform()
         sideButton.transform = hiddenSideTransform()
         leadingButton.onTap = { [weak self] action in
