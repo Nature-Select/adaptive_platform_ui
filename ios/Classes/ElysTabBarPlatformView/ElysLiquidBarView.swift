@@ -18,6 +18,14 @@ final class ElysLiquidBarView: UIView {
     var barHidden = false
     var barHiddenRestoreGeneration = 0
     var inputModeEnteredAt: CFTimeInterval = 0
+    // tab 组擦除进度（0=全显，1=收进 side 按钮位）。单一事实源：布局路径
+    // （layoutNormal）从它幂等推导 wrapper 几何，动画块内改它后重放布局，
+    // 任何动画块外的布局脉冲都只是模型 no-op，不会扰动 additive 动画。
+    var tabWipeProgress: CGFloat = 0
+    // morph 代际：过期动画 completion 一律 no-op（照抄 barHidden 的模式）。
+    var morphGeneration = 0
+    var morphInFlight = false
+    var hasAppliedInitialState = false
     var layoutEmitScheduled = false
     var pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
     var lastLayoutPayloadSignature: String?
@@ -90,10 +98,12 @@ final class ElysLiquidBarView: UIView {
     func focusInput() {
         // 隐藏态下聚焦会弹出键盘却看不到输入框，且用户无从关闭，直接忽略。
         guard !barHidden else { return }
+        // 先保证几何就绪再起 morph——动画启动后再强制布局属于动画块外的
+        // 裸赋值，会掐断进场弹簧。
+        setNeedsLayout(); layoutIfNeeded()
         if !interactionCoordinator.inputActive {
             setInputActive(true, animated: true, emit: true)
         }
-        setNeedsLayout(); layoutIfNeeded()
         inputBar.focus()
         DispatchQueue.main.async { [weak self] in self?.inputBar.focus() }
     }
@@ -115,7 +125,9 @@ final class ElysLiquidBarView: UIView {
         blankTapView.addTarget(self, action: #selector(blankTapped), for: .touchUpInside)
         referenceTabBar.isHidden = true
         referenceTabBar.isTranslucent = true
-        [referenceTabBar, blankTapView, glassContainerView, tabBar].forEach {
+        // tab wrapper 在玻璃容器之下：输入胶囊展开时其玻璃从上方扫过被擦除
+        // 中的 tab 胶囊，裁切边始终藏在胶囊玻璃前沿之后。
+        [referenceTabBar, blankTapView, tabBar, glassContainerView].forEach {
             addSubview($0)
         }
         [leadingButton, inputBar, sideButton].forEach {
@@ -126,7 +138,7 @@ final class ElysLiquidBarView: UIView {
         sideButton.setContentVisible(false)
         sideButton.setGlassVisible(false)
         inputBar.transform = hiddenInputTransform()
-        sideButton.transform = hiddenSideTransform()
+        sideButton.restingTransform = hiddenSideTransform()
         leadingButton.onTap = { [weak self] action in
             guard let self else { return }
             self.setInputActive(true, animated: true, emit: true)
@@ -238,6 +250,12 @@ final class ElysLiquidBarView: UIView {
 
     private func layoutNormal() {
         configureIconsIfNeeded()
+        layoutTabGroup()
+    }
+
+    // tab 组几何单点合成：y 含 setBarHidden 位移、x/width 含 wipe 进度，
+    // 每次调用全量重算（自然宽度不跨帧缓存，旋转/分屏安全）。
+    func layoutTabGroup() {
         let layout = measuredLayout()
         let barY = barTopY(for: layout)
         let inset = ElysBarMetrics.sideInset(for: bounds.width)
@@ -247,12 +265,27 @@ final class ElysLiquidBarView: UIView {
         let controlHeight = layout.contentHeight
         let leadW = controlHeight
         let tabX = inset + leadW + gap - overlap
-        place(tabBar, CGRect(
+        let natural = CGRect(
             x: tabX,
             y: barY,
             width: bounds.width - trailingInset - tabX,
             height: layout.totalHeight
-        ))
+        )
+        // 坍缩终点：窗口左缘 = 输入胶囊终态右缘（与胶囊展开同曲线同事务时，
+        // 裁切边全程严格躲在玻璃前沿之后、t=1 恰好重合，不露一帧）；窗口右缘
+        // = side 按钮右缘，残留 tail 被 side 按钮玻璃与 merge 覆盖，静止态由
+        // isHidden 收尾。（Apple 官方形态：胶囊原地收拢成单钮，图标不缩放。）
+        let sideInset = min(ElysBarMetrics.inputOuterInset, max(12, bounds.width * 0.07))
+        let side = ElysBarMetrics.inputCollapsedHeight
+        let sideGap = side + ElysBarMetrics.inputSpacing
+        let pillRightEnd = sideInset + max(160, bounds.width - sideInset * 2 - sideGap)
+        let target = CGRect(
+            x: pillRightEnd,
+            y: natural.minY,
+            width: max(1, (bounds.width - sideInset) - pillRightEnd),
+            height: natural.height
+        )
+        tabBar.applyWipe(natural: natural, target: target, progress: tabWipeProgress)
         tabBar.setNeedsLayout()
         tabBar.layoutIfNeeded()
         let itemCenterY = tabBar.itemVisualCenterY() ?? layout.contentRect.midY

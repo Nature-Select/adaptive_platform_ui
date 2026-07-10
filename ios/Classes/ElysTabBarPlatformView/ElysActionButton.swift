@@ -9,6 +9,15 @@ final class ElysActionButton: UIControl {
     private let badgeLabel = UILabel(frame: .zero)
     private var action: ElysActionConfig?
     private var iconSize: CGFloat = 36
+    private var pressedScale: CGFloat = 1
+    // 形态切换用的基准 transform。按压回弹动画在它之上叠加缩放——若直接
+    // 动画回 identity，onTap 里 morph 刚设置的退场 transform 会被同一次
+    // 触摸的 touchUp 覆盖掉（真实点击必踩，controller 驱动不经过此路径）。
+    var restingTransform: CGAffineTransform = .identity {
+        didSet {
+            transform = restingTransform.scaledBy(x: pressedScale, y: pressedScale)
+        }
+    }
     var onTap: ((ElysActionConfig) -> Void)?
 
     init(assetLoader: ElysAssetLoader) {
@@ -126,6 +135,7 @@ final class ElysActionButton: UIControl {
     }
 
     private func animateScale(_ scale: CGFloat, damping: CGFloat) {
+        pressedScale = scale
         UIView.animate(
             withDuration: 0.24,
             delay: 0,
@@ -133,7 +143,7 @@ final class ElysActionButton: UIControl {
             initialSpringVelocity: 0.35,
             options: [.allowUserInteraction, .beginFromCurrentState]
         ) {
-            self.transform = CGAffineTransform(scaleX: scale, y: scale)
+            self.transform = self.restingTransform.scaledBy(x: scale, y: scale)
         }
     }
 }

@@ -38,7 +38,11 @@ extension ElysLiquidBarView {
 
     func setInputActive(_ active: Bool, animated: Bool, emit: Bool) {
         let oldState = interactionCoordinator.renderState
-        guard oldState.inputActive != active || !animated else { return }
+        // 状态未变一律直接返回（含 animated=false 的重复调用——setConfig 回写
+        // 若穿透到非动画分支，会在 morph 飞行中裸赋值掐断弹簧并在飞行中切
+        // glass）；仅初始 apply 放行一次以铺底几何与 glass 静止态。
+        guard oldState.inputActive != active || !hasAppliedInitialState else { return }
+        hasAppliedInitialState = true
         interactionCoordinator.setInputActive(active)
         if active && !oldState.inputActive {
             inputModeEnteredAt = CACurrentMediaTime()
@@ -63,34 +67,42 @@ extension ElysLiquidBarView {
         // 同位互换）由 inputOptionsGraceInterval 栅栏单点兜底。
         setBarControlsInteraction(inputActive: active)
         if animated {
-            // 玻璃 effect 只在静止态切换，飞行途中永不过渡（消融/物化过渡会
-            // 把玻璃底板整块渲染出来）：进场元素动画前无感开启（起点被覆盖或
-            // 即将弹出），退场元素保持开启带着玻璃退场，completion 按当前状态
-            // 收尾关闭。退场组走短促 easeIn 快速让位，进场组才走弹簧——近全宽
-            // 的胶囊玻璃若与进场弹簧同速慢退，会在新形态下面垫出"多一层"。
+            // 玻璃 effect 只在静止态切换，飞行途中永不过渡；代际守卫保证
+            // 被打断动画的过期 completion 整体 no-op（快速反打时前置的
+            // setGlassVisible(true) 都是对已开启玻璃的 no-op，安全）。
+            // wipe 与胶囊展开同曲线同相位（弹簧进场组）：裁切边始终贴着
+            // 胶囊玻璃前沿推进，终点与 side 按钮左缘重合、由其玻璃盖住。
+            morphGeneration += 1
+            morphInFlight = true
+            let generation = morphGeneration
             let exitChanges: () -> Void
             let enterChanges: () -> Void
             if active {
                 inputBar.setGlassVisible(true)
                 sideButton.setGlassVisible(true)
-                exitChanges = { self.applyTabControlsRenderState(state) }
+                exitChanges = { self.applyLeadingRenderState(state) }
                 enterChanges = {
-                    // 顺序约束：先把 transform 归位到 identity，再 layoutInput
-                    // 设 frame。transform 非 identity 时设 frame 是 UIKit 未定义
-                    // 行为（bounds 按 1/scale 反推），缩放越极端放大越夸张。
+                    // 顺序约束：先归位 transform 再布局（frame/bounds 写入
+                    // 必须在 identity 下），wipe 与胶囊同一事务推进。
                     self.applyInputControlsRenderState(state)
                     self.layoutInput(state)
+                    self.tabWipeProgress = 1
+                    self.layoutTabGroup()
                 }
             } else {
                 leadingButton.setGlassVisible(true)
-                // tab 组从平台视图外的下滑位弹回，先解除 isHidden（位置在
-                // 视图外，解除瞬间不可见）。
+                // tab 组从被裁剪至 side 按钮位的窗口中展开，先解除 isHidden
+                //（窗口宽 62pt 且在 side 按钮玻璃正下方，解除瞬间不可见）。
                 tabBar.isHidden = false
                 exitChanges = {
                     self.layoutInput(state)
                     self.applyInputControlsRenderState(state)
                 }
-                enterChanges = { self.applyTabControlsRenderState(state) }
+                enterChanges = {
+                    self.applyLeadingRenderState(state)
+                    self.tabWipeProgress = 0
+                    self.layoutTabGroup()
+                }
             }
             UIView.animate(
                 withDuration: ElysBarMetrics.morphExitDuration,
@@ -98,10 +110,9 @@ extension ElysLiquidBarView {
                 options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseIn],
                 animations: exitChanges
             ) { _ in
-                let inputActiveNow = self.interactionCoordinator.inputActive
-                if inputActiveNow {
+                guard generation == self.morphGeneration else { return }
+                if self.interactionCoordinator.inputActive {
                     self.leadingButton.setGlassVisible(false)
-                    self.tabBar.isHidden = true
                 } else {
                     self.inputBar.setGlassVisible(false)
                     self.sideButton.setGlassVisible(false)
@@ -118,6 +129,11 @@ extension ElysLiquidBarView {
                 options: [.allowUserInteraction, .beginFromCurrentState],
                 animations: enterChanges
             ) { _ in
+                guard generation == self.morphGeneration else { return }
+                self.morphInFlight = false
+                if self.interactionCoordinator.inputActive {
+                    self.tabBar.isHidden = true
+                }
                 self.blankTapView.isHidden = !active
                 self.blankTapView.isUserInteractionEnabled = active
             }
@@ -142,18 +158,21 @@ extension ElysLiquidBarView {
 
     func applyInputRenderState(_ state: ElysBarRenderState) {
         layoutInput(state)
-        applyTabControlsRenderState(state)
+        applyLeadingRenderState(state)
         applyInputControlsRenderState(state)
+        // UITabBar 永远不做 alpha/transform/resize：iOS 26 的 UITabBar 私有
+        // 液态玻璃在 alpha < 1 时合成退化（全宽底板+错位残影，逐帧实锤），
+        // scale 微缩图标又不符合 Apple 官方「原地坍缩成单钮」的形态。tab 侧
+        // 用 wrapper 裁剪窗口 wipe（内层零接触），静止态切 isHidden。
+        tabWipeProgress = state.tabControlsVisible ? 0 : 1
+        layoutTabGroup()
     }
 
-    func applyTabControlsRenderState(_ state: ElysBarRenderState) {
+    func applyLeadingRenderState(_ state: ElysBarRenderState) {
         leadingButton.setContentVisible(state.tabControlsVisible)
-        // UITabBar 永远不做 alpha 渐变：iOS 26 的 UITabBar 私有液态玻璃在
-        // alpha < 1 时合成退化，会渲染出全宽玻璃底板 + 错位图标残影（模拟器
-        // 逐帧实锤）。tab 侧只用 transform（translate+scale 经逐帧验证安全）
-        // 进出，静止态由 setInputActive 切 isHidden。
-        leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
-        tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
+        leadingButton.restingTransform = state.tabControlsVisible
+            ? .identity
+            : hiddenLeadingTransform()
     }
 
     func applyInputControlsRenderState(_ state: ElysBarRenderState) {
@@ -161,27 +180,13 @@ extension ElysLiquidBarView {
         sideButton.setContentVisible(state.sideButtonVisible)
         blankTapView.alpha = state.inputVisible ? 1 : 0
         inputBar.transform = state.inputVisible ? .identity : hiddenInputTransform()
-        sideButton.transform = state.sideButtonVisible ? .identity : hiddenSideTransform()
+        sideButton.restingTransform = state.sideButtonVisible
+            ? .identity
+            : hiddenSideTransform()
     }
 
     func hiddenLeadingTransform() -> CGAffineTransform {
         CGAffineTransform(translationX: -20, y: 0).scaledBy(x: 0.88, y: 0.88)
-    }
-
-    func hiddenTabTransform() -> CGAffineTransform {
-        // 收进右侧 side 按钮：与「输入胶囊 ↔ 左侧入口按钮」对称的吸收观感
-        // （tab 组收拢成当前 tab）。只用 translate + scale，UITabBar 严禁
-        // alpha/effect 动画；bounds 已由 center+bounds 布局免疫 transform。
-        // 兜底（尺寸未就绪时）：垂直滑出底边。
-        guard tabBar.bounds.width > 1, sideButton.bounds.width > 1 else {
-            return CGAffineTransform(
-                translationX: 0,
-                y: tabBar.bounds.height + ElysBarMetrics.hiddenBarOverflow
-            )
-        }
-        let scale = max(0.1, sideButton.bounds.width / tabBar.bounds.width)
-        let shift = sideButton.center.x - tabBar.center.x
-        return CGAffineTransform(translationX: shift, y: 0).scaledBy(x: scale, y: scale)
     }
 
     func hiddenInputTransform() -> CGAffineTransform {
