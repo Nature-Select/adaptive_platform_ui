@@ -75,15 +75,22 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         glassView.frame = bounds
         refreshLeadingButtonImageIfNeeded()
         let accessory = accessoryLayout()
-        leadingButton.frame = accessory.leading
-        trailingBackgroundView.frame = accessory.trailingBackground
+        // 附件按钮带按压 scale transform，布局必须走 center+bounds（transform
+        // 非 identity 时设 frame 是 UIKit 未定义行为，bounds 会被反推放大）。
+        place(leadingButton, accessory.leading)
+        place(trailingBackgroundView, accessory.trailingBackground)
         trailingBackgroundView.layer.cornerRadius = trailingBackgroundView.bounds.height / 2
-        trailingButton.frame = accessory.trailing
-        textView.frame = accessory.text
+        place(trailingButton, accessory.trailing)
+        place(textView, accessory.text)
         layoutTextInsets()
         if (!usesMultilineLayout || usesCompactMultilineLayout) && !textView.isFirstResponder {
             textView.setContentOffset(.zero, animated: false)
         }
+    }
+
+    private func place(_ view: UIView, _ frame: CGRect) {
+        view.bounds = CGRect(origin: .zero, size: frame.size)
+        view.center = CGPoint(x: frame.midX, y: frame.midY)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
