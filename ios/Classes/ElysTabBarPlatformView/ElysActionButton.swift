@@ -3,6 +3,7 @@ import UIKit
 @available(iOS 26.0, *)
 final class ElysActionButton: UIControl {
     private let assetLoader: ElysAssetLoader
+    private let glassEffect: UIGlassEffect
     private let glassView: UIVisualEffectView
     private let imageView = UIImageView(frame: .zero)
     private let badgeLabel = UILabel(frame: .zero)
@@ -14,6 +15,7 @@ final class ElysActionButton: UIControl {
         self.assetLoader = assetLoader
         let effect = UIGlassEffect(style: .regular)
         effect.isInteractive = true
+        glassEffect = effect
         glassView = UIVisualEffectView(effect: effect)
         super.init(frame: .zero)
         setup()
@@ -48,6 +50,14 @@ final class ElysActionButton: UIControl {
     func updateCornerRadius(_ radius: CGFloat) {
         layer.cornerRadius = radius
         glassView.layer.cornerRadius = radius
+    }
+
+    // 玻璃视图不允许动画容器 alpha（部分透明时 effect 合成退化，闪出矩形
+    // 底板）；显隐走 Apple 支持的 effect 淡入淡出 + 非玻璃内容 alpha。
+    func setContentVisible(_ visible: Bool) {
+        glassView.effect = visible ? glassEffect : nil
+        imageView.alpha = visible ? 1 : 0
+        badgeLabel.alpha = visible ? 1 : 0
     }
 
     private func setup() {
