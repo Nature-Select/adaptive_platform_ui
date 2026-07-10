@@ -62,19 +62,46 @@ extension ElysLiquidBarView {
         // 已为 0、UIKit 命中测试天然跳过；入场侧唯一的误触风险（入口→更多
         // 同位互换）由 inputOptionsGraceInterval 栅栏单点兜底。
         setBarControlsInteraction(inputActive: active)
-        let changes = {
-            self.applyInputRenderState(state)
-        }
         if animated {
             // 玻璃 effect 只在静止态切换，飞行途中永不过渡（消融/物化过渡会
             // 把玻璃底板整块渲染出来）：进场元素动画前无感开启（起点被覆盖或
             // 即将弹出），退场元素保持开启带着玻璃退场，completion 按当前状态
-            // 收尾关闭。
+            // 收尾关闭。退场组走短促 easeIn 快速让位，进场组才走弹簧——近全宽
+            // 的胶囊玻璃若与进场弹簧同速慢退，会在新形态下面垫出"多一层"。
+            let exitChanges: () -> Void
+            let enterChanges: () -> Void
             if active {
                 inputBar.setGlassVisible(true)
                 sideButton.setGlassVisible(true)
+                exitChanges = { self.applyTabControlsRenderState(state) }
+                enterChanges = {
+                    self.layoutInput(state)
+                    self.applyInputControlsRenderState(state)
+                }
             } else {
                 leadingButton.setGlassVisible(true)
+                exitChanges = {
+                    self.layoutInput(state)
+                    self.applyInputControlsRenderState(state)
+                }
+                enterChanges = { self.applyTabControlsRenderState(state) }
+            }
+            UIView.animate(
+                withDuration: ElysBarMetrics.morphExitDuration,
+                delay: 0,
+                options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseIn],
+                animations: exitChanges
+            ) { _ in
+                let inputActiveNow = self.interactionCoordinator.inputActive
+                if inputActiveNow {
+                    self.leadingButton.setGlassVisible(false)
+                } else {
+                    self.inputBar.setGlassVisible(false)
+                    self.sideButton.setGlassVisible(false)
+                    if !self.interactionCoordinator.keyboardVisible {
+                        self.inputBar.finishDismissalAnimation()
+                    }
+                }
             }
             UIView.animate(
                 withDuration: ElysBarMetrics.morphAnimationDuration,
@@ -82,20 +109,13 @@ extension ElysLiquidBarView {
                 usingSpringWithDamping: ElysBarMetrics.morphAnimationDamping,
                 initialSpringVelocity: ElysBarMetrics.morphInitialVelocity,
                 options: [.allowUserInteraction, .beginFromCurrentState],
-                animations: changes
+                animations: enterChanges
             ) { _ in
-                let inputActiveNow = self.interactionCoordinator.inputActive
-                self.inputBar.setGlassVisible(inputActiveNow)
-                self.sideButton.setGlassVisible(inputActiveNow)
-                self.leadingButton.setGlassVisible(!inputActiveNow)
                 self.blankTapView.isHidden = !active
                 self.blankTapView.isUserInteractionEnabled = active
-                if !active && !self.interactionCoordinator.keyboardVisible {
-                    self.inputBar.finishDismissalAnimation()
-                }
             }
         } else {
-            changes()
+            applyInputRenderState(state)
             inputBar.setGlassVisible(active)
             sideButton.setGlassVisible(active)
             leadingButton.setGlassVisible(!active)
@@ -114,13 +134,21 @@ extension ElysLiquidBarView {
 
     func applyInputRenderState(_ state: ElysBarRenderState) {
         layoutInput(state)
+        applyTabControlsRenderState(state)
+        applyInputControlsRenderState(state)
+    }
+
+    func applyTabControlsRenderState(_ state: ElysBarRenderState) {
         leadingButton.setContentVisible(state.tabControlsVisible)
         tabBar.alpha = state.tabControlsVisible ? 1 : 0
+        leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
+        tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
+    }
+
+    func applyInputControlsRenderState(_ state: ElysBarRenderState) {
         inputBar.setContentVisible(state.inputVisible)
         sideButton.setContentVisible(state.sideButtonVisible)
         blankTapView.alpha = state.inputVisible ? 1 : 0
-        leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
-        tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
         inputBar.transform = state.inputVisible ? .identity : hiddenInputTransform()
         sideButton.transform = state.sideButtonVisible ? .identity : hiddenSideTransform()
     }
