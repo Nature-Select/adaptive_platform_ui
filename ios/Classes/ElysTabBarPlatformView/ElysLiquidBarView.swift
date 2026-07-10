@@ -19,7 +19,6 @@ final class ElysLiquidBarView: UIView {
     var barHiddenRestoreGeneration = 0
     var inputModeEnteredAt: CFTimeInterval = 0
     var layoutEmitScheduled = false
-    var barControlsRestoreGeneration = 0
     var pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
     var lastLayoutPayloadSignature: String?
     var keyboardDisplayLink: CADisplayLink?
@@ -134,8 +133,8 @@ final class ElysLiquidBarView: UIView {
         sideButton.onTap = { [weak self] action in
             guard let self else { return }
             let text = self.inputBar.text
-            self.interactionCoordinator.queueSideAction(["id": action.id, "text": text])
             self.setInputActive(false, animated: true, emit: true)
+            self.onEvent?("inputSideActionTapped", ["id": action.id, "text": text])
         }
         tabBar.onSelect = { [weak self] tab, index in
             self?.onEvent?("tabSelected", ["id": tab.id, "index": index])
