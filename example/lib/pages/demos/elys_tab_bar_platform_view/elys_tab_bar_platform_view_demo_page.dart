@@ -38,6 +38,12 @@ class _ElysTabBarPlatformViewDemoPageState
   static const _initialInputText = String.fromEnvironment(
     'ELYS_INITIAL_INPUT_TEXT',
   );
+  // 自动化回归钩子：定时往返 tab/输入形态，配合模拟器录屏做逐帧检查
+  // （原生 UITabBar 无法注入触摸，morph 只能经 controller 驱动）。
+  static const _autoMorph = bool.fromEnvironment(
+    'ELYS_AUTO_MORPH',
+    defaultValue: false,
+  );
 
   String _selectedTabId = 'library';
   String _inputText = '';
@@ -50,6 +56,7 @@ class _ElysTabBarPlatformViewDemoPageState
   bool _barHidden = false;
   ElysBarLayoutEvent? _barLayout;
   final _barController = ElysNativeTabBarController();
+  Timer? _autoMorphTimer;
 
   @override
   void initState() {
@@ -59,6 +66,17 @@ class _ElysTabBarPlatformViewDemoPageState
     if (_startInput && _autoFocusInput) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _focusInputForTest());
     }
+    if (_autoMorph) {
+      _autoMorphTimer = Timer.periodic(const Duration(milliseconds: 1600), (_) {
+        unawaited(_barController.setInputActive(!_inputActive));
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoMorphTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _focusInputForTest() async {

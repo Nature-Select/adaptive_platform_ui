@@ -228,6 +228,14 @@ final class ElysLiquidBarView: UIView {
         }
     }
 
+    // 布局一律走 center + bounds：transform 非 identity 时设 frame 是 UIKit
+    // 未定义行为，bounds 会被按逆变换反推放大（日志实测：吸收态胶囊 bounds
+    // 被撑到 1066pt），与动画撞上时渲染成数倍屏宽的玻璃板。
+    private func place(_ view: UIView, _ frame: CGRect) {
+        view.bounds = CGRect(origin: .zero, size: frame.size)
+        view.center = CGPoint(x: frame.midX, y: frame.midY)
+    }
+
     private func layoutNormal() {
         configureIconsIfNeeded()
         let layout = measuredLayout()
@@ -239,21 +247,21 @@ final class ElysLiquidBarView: UIView {
         let controlHeight = layout.contentHeight
         let leadW = controlHeight
         let tabX = inset + leadW + gap - overlap
-        tabBar.frame = CGRect(
+        place(tabBar, CGRect(
             x: tabX,
             y: barY,
             width: bounds.width - trailingInset - tabX,
             height: layout.totalHeight
-        )
+        ))
         tabBar.setNeedsLayout()
         tabBar.layoutIfNeeded()
         let itemCenterY = tabBar.itemVisualCenterY() ?? layout.contentRect.midY
-        leadingButton.frame = CGRect(
+        place(leadingButton, CGRect(
             x: inset,
             y: barY + itemCenterY - controlHeight / 2,
             width: leadW,
             height: controlHeight
-        )
+        ))
         leadingButton.updateCornerRadius(controlHeight / 2)
     }
 
@@ -275,8 +283,8 @@ final class ElysLiquidBarView: UIView {
                     - height
             ) + hiddenBarShift(totalHeight: measuredLayout().totalHeight)
             : collapsedInputTopY()
-        inputBar.frame = CGRect(x: inset, y: y, width: inputW, height: height)
-        sideButton.frame = CGRect(x: bounds.width - inset - side, y: y, width: side, height: side)
+        place(inputBar, CGRect(x: inset, y: y, width: inputW, height: height))
+        place(sideButton, CGRect(x: bounds.width - inset - side, y: y, width: side, height: side))
         inputBar.setExpanded(state.inputExpanded)
         inputBar.updateCornerRadius(
             state.inputExpanded ? ElysBarMetrics.expandedInputCornerRadius : height / 2
