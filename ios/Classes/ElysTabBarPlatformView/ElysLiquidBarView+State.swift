@@ -44,7 +44,7 @@ extension ElysLiquidBarView {
             inputModeEnteredAt = CACurrentMediaTime()
         }
         let state = interactionCoordinator.renderState
-        pendingLayoutAnimationDuration = ElysBarMetrics.animationDuration
+        pendingLayoutAnimationDuration = ElysBarMetrics.morphAnimationDuration
         if active {
             inputBar.finishDismissalAnimation()
             inputBar.setTrailingAccessorySuppressed(false)
@@ -67,10 +67,10 @@ extension ElysLiquidBarView {
         }
         if animated {
             UIView.animate(
-                withDuration: ElysBarMetrics.animationDuration,
+                withDuration: ElysBarMetrics.morphAnimationDuration,
                 delay: 0,
-                usingSpringWithDamping: ElysBarMetrics.animationDamping,
-                initialSpringVelocity: 0,
+                usingSpringWithDamping: ElysBarMetrics.morphAnimationDamping,
+                initialSpringVelocity: ElysBarMetrics.morphInitialVelocity,
                 options: [.allowUserInteraction, .beginFromCurrentState],
                 animations: changes
             ) { _ in
