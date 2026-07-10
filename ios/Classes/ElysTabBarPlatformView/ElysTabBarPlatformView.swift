@@ -43,6 +43,10 @@ final class ElysTabBarPlatformView: NSObject, FlutterPlatformView {
             }
             rootView.apply(config)
             result(nil)
+        case "setSelectedTab":
+            let args = call.arguments as? [String: Any]
+            rootView.setSelectedTab(args?["id"] as? String ?? "")
+            result(nil)
         case "setInputActive":
             let args = call.arguments as? [String: Any]
             rootView.setInputActive((args?["active"] as? NSNumber)?.boolValue ?? false)

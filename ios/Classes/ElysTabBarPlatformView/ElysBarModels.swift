@@ -86,7 +86,7 @@ struct ElysInputPrefixConfig {
 struct ElysBarConfig {
     let leadingAction: ElysActionConfig
     let tabs: [ElysTabConfig]
-    let selectedTabId: String
+    var selectedTabId: String
     let inputActive: Bool
     let input: ElysInputConfig
     let isDark: Bool

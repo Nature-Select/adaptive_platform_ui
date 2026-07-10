@@ -39,6 +39,16 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
         } ?? items.first
     }
 
+    /// Programmatic selection update; assigning selectedItem does not fire
+    /// the delegate, so no tabSelected event loops back to Dart.
+    func setSelected(id: String) {
+        guard let items = tabBar.items else { return }
+        guard let item = items.first(where: { item in
+            tabs.indices.contains(item.tag) && tabs[item.tag].id == id
+        }) else { return }
+        tabBar.selectedItem = item
+    }
+
     func itemVisualCenterY() -> CGFloat? {
         layoutIfNeeded()
         tabBar.layoutIfNeeded()

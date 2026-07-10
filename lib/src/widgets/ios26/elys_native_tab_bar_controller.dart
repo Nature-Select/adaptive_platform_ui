@@ -3,6 +3,16 @@ part of 'elys_native_tab_bar.dart';
 class ElysNativeTabBarController {
   _ElysNativeTabBarState? _state;
 
+  /// Updates the selected tab with a lightweight channel call instead of a
+  /// full `setConfig` push.
+  ///
+  /// No-ops when [id] already matches the selection native currently shows,
+  /// so callers may forward every Dart-side selection change unconditionally:
+  /// echoes of native-initiated taps are dropped here.
+  Future<void> setSelectedTab(String id) {
+    return _state?._setSelectedTab(id) ?? Future.value();
+  }
+
   Future<void> setInputActive(bool active) {
     return _state?._invoke('setInputActive', {'active': active}) ??
         Future.value();
