@@ -66,6 +66,17 @@ extension ElysLiquidBarView {
             self.applyInputRenderState(state)
         }
         if animated {
+            // 阴影根因：输入胶囊（含玻璃）在 0.45s 弹簧里做 alpha 渐变，
+            // alpha∈(0,1) 的 ~0.15-0.2s 内玻璃退化成灰色长方形底板，且随
+            // hiddenInputTransform 向左飘过入口按钮。alpha 拆到 0.10s 快速
+            // 曲线：胶囊在开始明显位移之前就已完全透明，底板可见窗口压到
+            // 感知阈以下；弹簧块内重设的 alpha 与此处终值相同，不产生新动画。
+            UIView.animate(
+                withDuration: ElysBarMetrics.morphFadeDuration,
+                delay: 0,
+                options: [.allowUserInteraction, .beginFromCurrentState, .curveEaseOut],
+                animations: { self.applyRenderAlphas(state) }
+            )
             UIView.animate(
                 withDuration: ElysBarMetrics.morphAnimationDuration,
                 delay: 0,
@@ -95,13 +106,17 @@ extension ElysLiquidBarView {
         sideButton.isUserInteractionEnabled = inputActive
     }
 
-    func applyInputRenderState(_ state: ElysBarRenderState) {
-        layoutInput(state)
+    func applyRenderAlphas(_ state: ElysBarRenderState) {
         leadingButton.alpha = state.tabControlsVisible ? 1 : 0
         tabBar.alpha = state.tabControlsVisible ? 1 : 0
         inputBar.alpha = state.inputVisible ? 1 : 0
         sideButton.alpha = state.sideButtonVisible ? 1 : 0
         blankTapView.alpha = state.inputVisible ? 1 : 0
+    }
+
+    func applyInputRenderState(_ state: ElysBarRenderState) {
+        layoutInput(state)
+        applyRenderAlphas(state)
         leadingButton.transform = state.tabControlsVisible ? .identity : hiddenLeadingTransform()
         tabBar.transform = state.tabControlsVisible ? .identity : hiddenTabTransform()
         inputBar.transform = state.inputVisible ? .identity : hiddenInputTransform()

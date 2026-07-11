@@ -91,7 +91,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func focus() {
-        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
         guard window != nil else { DispatchQueue.main.async { [weak self] in self?.focus() }; return }
         textView.becomeFirstResponder()
@@ -114,8 +113,8 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func prepareForDismissalAnimation() {
-        layer.rasterizationScale = UIScreen.main.scale
-        layer.shouldRasterize = true
+        // 不再栅格化退场中的玻璃胶囊：对 live 玻璃拍位图会把退化灰板固化
+        // 得更明显（性能动机已随图标缓存消失）。
         textView.isUserInteractionEnabled = false
         setTrailingAccessorySuppressed(true)
         textView.isScrollEnabled = false
@@ -129,7 +128,6 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func finishDismissalAnimation() {
-        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
     }
 
