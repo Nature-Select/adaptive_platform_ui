@@ -55,6 +55,11 @@ enum ElysBarMetrics {
     static let morphAnimationDuration: TimeInterval = 0.45
     static let morphAnimationDamping: CGFloat = 0.76
     static let morphInitialVelocity: CGFloat = 0.25
+    // 玻璃视图在 alpha∈(0,1) 的整个窗口都会渲染灰色底板（backdrop 被离屏
+    // 拍平后无背景可采样，Apple 文档明确；恰为 0/1 时无此问题）。alpha 单独
+    // 走这条快速曲线，把部分透明窗口压到感知阈以下；transform 仍走上面的
+    // 弹簧，编舞不变。
+    static let morphFadeDuration: TimeInterval = 0.10
     // 入口按钮 → 输入更多按钮同位互换后的误触栅栏：动画冻结（0.32s）只挡得住
     // 动画期内的连点，人因重复点击（“没点上再点一下”）在秒级，需要更宽的窗口。
     static let inputOptionsGraceInterval: TimeInterval = 0.6
