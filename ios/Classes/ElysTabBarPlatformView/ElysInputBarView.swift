@@ -133,6 +133,10 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
 
     func setText(_ text: String, notify: Bool) {
         guard inputText != text else { return }
+        // 组词（marked text）期间到达的外部文本要么是滞后的 setConfig 回声，
+        // 要么是终将随回声收敛的程序性写入；此时重写 attributedText 会终结
+        // IME 会话，把拼音以裸字母上屏。跳过，等组词结束后由同步链路收敛。
+        guard textView.markedTextRange == nil else { return }
         inputText = text
         renderInputText(cursorBodyOffset: (text as NSString).length)
         notifyPreferredHeightChanged()
@@ -263,7 +267,8 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func updatePlaceholder() {
-        placeholderLabel.isHidden = inputPrefix != nil || !inputText.isEmpty
+        // textView.hasText 覆盖组词阶段：marked text 不进 inputText，但占位符不能压在拼音上。
+        placeholderLabel.isHidden = inputPrefix != nil || !inputText.isEmpty || textView.hasText
     }
 
     func notifyPreferredHeightChanged() {
@@ -517,10 +522,21 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     @objc private func trailingTapped() {
         let action = expanded ? expandedTrailingAction : collapsedTrailingAction
         guard let action else { return }
+        // 未提交的组词拼音不随发送外发；先丢弃，让随后 Dart 侧的清空
+        // 回声不再被组词守卫拦下。
+        discardMarkedTextIfNeeded()
         if expandedTrailingAction?.id == action.id && expanded {
             onSubmit?(text)
         }
         onAccessoryTapped?(action.id)
+    }
+
+    private func discardMarkedTextIfNeeded() {
+        guard textView.markedTextRange != nil else { return }
+        isApplyingTextStorage = true
+        textView.unmarkText()
+        isApplyingTextStorage = false
+        renderInputText()
     }
 
     @objc private func accessoryTappedByGesture(_ gesture: UITapGestureRecognizer) {

@@ -66,6 +66,14 @@ extension ElysInputBarView {
 
     func syncTextFromTextViewIfNeeded() {
         guard !isApplyingTextStorage else { return }
+        // 组词（marked text）中的拼音不进 inputText、不上报 Dart：一旦经
+        // "onTextChanged → setConfig 回声"写回，会重置 attributedText 终结
+        // IME 会话。只维持占位符与高度，等提交/取消后再走正常同步。
+        guard textView.markedTextRange == nil else {
+            updatePlaceholder()
+            notifyPreferredHeightChanged()
+            return
+        }
         let prefixLength = currentPrefixLength()
         let display = (textView.text ?? "") as NSString
         let nextText: String
@@ -110,9 +118,20 @@ extension ElysInputBarView {
         if let prefix = prefixAttributedString(font: font) {
             text.append(prefix)
         }
-        let body = inputText.isEmpty && text.length == 0 ? " " : inputText
+        let measuredBody = bodyTextForMeasurement()
+        let body = measuredBody.isEmpty && text.length == 0 ? " " : measuredBody
         text.append(NSAttributedString(string: body, attributes: bodyTextAttributes(font: font)))
         return text
+    }
+
+    /// 组词中 inputText 不含 marked text，量高度须以展示文本为准，
+    /// 否则展开态拼音换行时高度不跟手。
+    fileprivate func bodyTextForMeasurement() -> String {
+        guard textView.markedTextRange != nil else { return inputText }
+        let display = (textView.text ?? "") as NSString
+        let prefixLength = currentPrefixLength()
+        guard display.length >= prefixLength else { return display as String }
+        return display.substring(from: prefixLength)
     }
 
     fileprivate func prefixAttributedString(font: UIFont? = nil) -> NSAttributedString? {
