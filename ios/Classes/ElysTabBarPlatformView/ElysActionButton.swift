@@ -3,28 +3,17 @@ import UIKit
 @available(iOS 26.0, *)
 final class ElysActionButton: UIControl {
     private let assetLoader: ElysAssetLoader
-    private let glassEffect: UIGlassEffect
     private let glassView: UIVisualEffectView
     private let imageView = UIImageView(frame: .zero)
     private let badgeLabel = UILabel(frame: .zero)
     private var action: ElysActionConfig?
     private var iconSize: CGFloat = 36
-    private var pressedScale: CGFloat = 1
-    // 形态切换用的基准 transform。按压回弹动画在它之上叠加缩放——若直接
-    // 动画回 identity，onTap 里 morph 刚设置的退场 transform 会被同一次
-    // 触摸的 touchUp 覆盖掉（真实点击必踩，controller 驱动不经过此路径）。
-    var restingTransform: CGAffineTransform = .identity {
-        didSet {
-            transform = restingTransform.scaledBy(x: pressedScale, y: pressedScale)
-        }
-    }
     var onTap: ((ElysActionConfig) -> Void)?
 
     init(assetLoader: ElysAssetLoader) {
         self.assetLoader = assetLoader
         let effect = UIGlassEffect(style: .regular)
         effect.isInteractive = true
-        glassEffect = effect
         glassView = UIVisualEffectView(effect: effect)
         super.init(frame: .zero)
         setup()
@@ -59,18 +48,6 @@ final class ElysActionButton: UIControl {
     func updateCornerRadius(_ radius: CGFloat) {
         layer.cornerRadius = radius
         glassView.layer.cornerRadius = radius
-    }
-
-    // 只管非玻璃内容；玻璃开关由 ElysLiquidBarView 按切换时序编排——
-    // effect 的消融/物化过渡在动画飞行中会渲染出灰色玻璃底板（视频逐帧
-    // 实锤），只允许在静止态无感切换。
-    func setContentVisible(_ visible: Bool) {
-        imageView.alpha = visible ? 1 : 0
-        badgeLabel.alpha = visible ? 1 : 0
-    }
-
-    func setGlassVisible(_ visible: Bool) {
-        glassView.effect = visible ? glassEffect : nil
     }
 
     private func setup() {
@@ -135,7 +112,6 @@ final class ElysActionButton: UIControl {
     }
 
     private func animateScale(_ scale: CGFloat, damping: CGFloat) {
-        pressedScale = scale
         UIView.animate(
             withDuration: 0.24,
             delay: 0,
@@ -143,7 +119,7 @@ final class ElysActionButton: UIControl {
             initialSpringVelocity: 0.35,
             options: [.allowUserInteraction, .beginFromCurrentState]
         ) {
-            self.transform = self.restingTransform.scaledBy(x: scale, y: scale)
+            self.transform = CGAffineTransform(scaleX: scale, y: scale)
         }
     }
 }

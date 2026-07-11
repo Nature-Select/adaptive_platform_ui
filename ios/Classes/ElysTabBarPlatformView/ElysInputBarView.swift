@@ -12,7 +12,6 @@ private final class ElysInputAccessoryButton: UIButton {
 @available(iOS 26.0, *)
 final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDelegate {
     let assetLoader: ElysAssetLoader
-    private let glassEffect: UIGlassEffect
     private let glassView: UIVisualEffectView
     let textView = UITextView(frame: .zero)
     let placeholderLabel = UILabel(frame: .zero)
@@ -45,24 +44,9 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         self.assetLoader = assetLoader
         let effect = UIGlassEffect(style: .regular)
         effect.isInteractive = true
-        glassEffect = effect
         glassView = UIVisualEffectView(effect: effect)
         super.init(frame: frame)
         setup()
-    }
-
-    // 只管非玻璃内容的显隐；玻璃的开关由 ElysLiquidBarView 按形态切换的
-    // 时序单独编排（飞行中不能消融，否则玻璃底板会以灰色矩形滑过入口按钮）。
-    // trailing 侧的 alpha 由 suppression 状态机独立管理，这里不碰。
-    func setContentVisible(_ visible: Bool) {
-        let alpha: CGFloat = visible ? 1 : 0
-        textView.alpha = alpha
-        placeholderLabel.alpha = alpha
-        leadingButton.alpha = alpha
-    }
-
-    func setGlassVisible(_ visible: Bool) {
-        glassView.effect = visible ? glassEffect : nil
     }
 
     required init?(coder: NSCoder) {
@@ -75,22 +59,15 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         glassView.frame = bounds
         refreshLeadingButtonImageIfNeeded()
         let accessory = accessoryLayout()
-        // 附件按钮带按压 scale transform，布局必须走 center+bounds（transform
-        // 非 identity 时设 frame 是 UIKit 未定义行为，bounds 会被反推放大）。
-        place(leadingButton, accessory.leading)
-        place(trailingBackgroundView, accessory.trailingBackground)
+        leadingButton.frame = accessory.leading
+        trailingBackgroundView.frame = accessory.trailingBackground
         trailingBackgroundView.layer.cornerRadius = trailingBackgroundView.bounds.height / 2
-        place(trailingButton, accessory.trailing)
-        place(textView, accessory.text)
+        trailingButton.frame = accessory.trailing
+        textView.frame = accessory.text
         layoutTextInsets()
         if (!usesMultilineLayout || usesCompactMultilineLayout) && !textView.isFirstResponder {
             textView.setContentOffset(.zero, animated: false)
         }
-    }
-
-    private func place(_ view: UIView, _ frame: CGRect) {
-        view.bounds = CGRect(origin: .zero, size: frame.size)
-        view.center = CGPoint(x: frame.midX, y: frame.midY)
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -114,6 +91,7 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func focus() {
+        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
         guard window != nil else { DispatchQueue.main.async { [weak self] in self?.focus() }; return }
         textView.becomeFirstResponder()
@@ -136,6 +114,8 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func prepareForDismissalAnimation() {
+        layer.rasterizationScale = UIScreen.main.scale
+        layer.shouldRasterize = true
         textView.isUserInteractionEnabled = false
         setTrailingAccessorySuppressed(true)
         textView.isScrollEnabled = false
@@ -149,6 +129,7 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
     }
 
     func finishDismissalAnimation() {
+        layer.shouldRasterize = false
         textView.isUserInteractionEnabled = true
     }
 

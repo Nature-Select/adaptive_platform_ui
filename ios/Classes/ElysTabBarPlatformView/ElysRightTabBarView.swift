@@ -18,26 +18,9 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
         fatalError("init(coder:) has not been implemented")
     }
 
-    // wipe 几何唯一入口（无 layoutSubviews 覆写，任何布局脉冲都不会改写
-    // 内层几何）。wrapper 是裁剪窗口：progress 0→1 时窗口从自然 frame 线性
-    // 收拢到 target（side 按钮矩形），内层 UITabBar 保持自然尺寸且屏幕定点
-    // ——bounds/center/transform/alpha 全程零接触，只有可见窗口在变。
-    // 所有值均为 progress 的线性函数且成对写入，additive 动画下「右缘/内容
-    // 定点」不变量对任意曲线叠加与中断均成立；本函数幂等，动画块外的布局
-    // 重放是模型 no-op。
-    func applyWipe(natural: CGRect, target: CGRect, progress: CGFloat) {
-        guard natural.width > 1, natural.height > 1 else { return }
-        let p = min(max(progress, 0), 1)
-        let width = max(0, natural.width + (target.width - natural.width) * p)
-        let centerX = natural.midX + (target.midX - natural.midX) * p
-        bounds = CGRect(origin: .zero, size: CGSize(width: width, height: natural.height))
-        center = CGPoint(x: centerX, y: natural.midY)
-        tabBar.bounds = CGRect(origin: .zero, size: natural.size)
-        // 内层内容屏幕定点：tabCenterX(屏幕) ≡ natural.midX
-        tabBar.center = CGPoint(
-            x: natural.midX - (centerX - width / 2),
-            y: natural.height / 2
-        )
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        tabBar.frame = bounds
     }
 
     func configure(
@@ -103,6 +86,7 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
     }
 
     func itemVisualCenterY() -> CGFloat? {
+        layoutIfNeeded()
         tabBar.layoutIfNeeded()
         let itemViews = tabBar.subviews
             .filter { String(describing: type(of: $0)).contains("UITabBarButton") }
@@ -113,7 +97,6 @@ final class ElysRightTabBarView: UIView, UITabBarDelegate {
 
     private func setup() {
         backgroundColor = .clear
-        clipsToBounds = true
         tabBar.delegate = self
         tabBar.isTranslucent = true
         tabBar.backgroundImage = UIImage()

@@ -61,20 +61,7 @@ extension ElysLiquidBarView {
     @objc private func keyboardDidHide(_ notification: Notification) {
         stopKeyboardTracking()
         interactionCoordinator.keyboardDidHideCleanup()
-        // morph 飞行中终值由 morph 动画负责，这里的重放会在动画块外裸赋值
-        // 掐断弹簧；仅在无 morph 时做键盘收尾重放（只驱动输入侧）。
-        if !morphInFlight {
-            UIView.animate(
-                withDuration: 0.18,
-                delay: 0,
-                options: [.allowUserInteraction, .beginFromCurrentState],
-                animations: {
-                    let state = self.interactionCoordinator.renderState
-                    self.layoutInput(state)
-                    self.applyInputControlsRenderState(state)
-                }
-            )
-        }
+        applyInputRenderState(interactionCoordinator.renderState)
         if !interactionCoordinator.inputActive {
             inputBar.finishDismissalAnimation()
         }
@@ -85,19 +72,18 @@ extension ElysLiquidBarView {
         duration: TimeInterval,
         options: UIView.AnimationOptions
     ) {
-        // 键盘路径只驱动输入侧：tab 侧 wipe 只归 morph 动画组与静止态 apply
-        // 所有——否则 blur() 同步派发的键盘通知会抢在弹簧进场组之前，把
-        // wipe 的模型变更捕获进 ~0.25s 的键盘曲线里（reveal 被抢跑）。
-        // 不设 completion：终值已在 animations 内写入 model，被打断动画的
-        // 过期 completion 裸重放反而会掐断后续动画。
+        let changes = {
+            self.applyInputRenderState(state)
+        }
+        let completion: (Bool) -> Void = { _ in
+            self.applyInputRenderState(self.interactionCoordinator.renderState)
+        }
         UIView.animate(
             withDuration: max(0.18, duration),
             delay: 0,
             options: options,
-            animations: {
-                self.layoutInput(state)
-                self.applyInputControlsRenderState(state)
-            }
+            animations: changes,
+            completion: completion
         )
     }
 
@@ -118,7 +104,7 @@ extension ElysLiquidBarView {
         link.add(to: .main, forMode: .common)
         DispatchQueue.main.asyncAfter(deadline: .now() + max(0.18, duration) + 0.08) { [weak self] in
             self?.stopKeyboardTracking()
-            guard let self, !self.morphInFlight else { return }
+            guard let self else { return }
             self.layoutInput(self.interactionCoordinator.renderState)
         }
     }
@@ -129,7 +115,6 @@ extension ElysLiquidBarView {
     }
 
     @objc private func keyboardDisplayTick() {
-        guard !morphInFlight else { return }
         layoutInput(interactionCoordinator.renderState)
     }
 

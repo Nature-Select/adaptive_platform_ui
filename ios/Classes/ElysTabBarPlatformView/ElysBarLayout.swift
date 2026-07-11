@@ -55,9 +55,6 @@ enum ElysBarMetrics {
     static let morphAnimationDuration: TimeInterval = 0.45
     static let morphAnimationDamping: CGFloat = 0.76
     static let morphInitialVelocity: CGFloat = 0.25
-    // 退场组时长：退场元素带玻璃快速让位（近全宽的输入胶囊慢速退场时，
-    // 玻璃会在新形态下面垫出"多一层"），进场组才走上面的弹簧。
-    static let morphExitDuration: TimeInterval = 0.22
     // 入口按钮 → 输入更多按钮同位互换后的误触栅栏：动画冻结（0.32s）只挡得住
     // 动画期内的连点，人因重复点击（“没点上再点一下”）在秒级，需要更宽的窗口。
     static let inputOptionsGraceInterval: TimeInterval = 0.6
