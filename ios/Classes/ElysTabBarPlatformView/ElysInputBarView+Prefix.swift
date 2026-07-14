@@ -85,6 +85,7 @@ extension ElysInputBarView {
         guard nextText != inputText else { updatePlaceholder(); return }
         inputText = nextText
         textView.typingAttributes = bodyTextAttributes()
+        updatePlaceholder()
         notifyPreferredHeightChanged()
         onTextChanged?(inputText)
     }
