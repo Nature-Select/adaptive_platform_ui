@@ -2,10 +2,10 @@ import UIKit
 
 @available(iOS 26.0, *)
 private final class ElysInputAccessoryButton: UIButton {
-    var hitSlop: CGFloat = 0
+    var hitSlop = CGSize.zero
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        bounds.insetBy(dx: -hitSlop, dy: -hitSlop).contains(point)
+        bounds.insetBy(dx: -hitSlop.width, dy: -hitSlop.height).contains(point)
     }
 }
 
@@ -224,8 +224,14 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         textView.showsVerticalScrollIndicator = false
         textView.showsHorizontalScrollIndicator = false
 
-        configureButtonShell(leadingButton)
-        configureButtonShell(trailingButton)
+        configureButtonShell(
+            leadingButton,
+            hitSlop: ElysBarMetrics.inputLeadingAccessoryHitSlop
+        )
+        configureButtonShell(
+            trailingButton,
+            hitSlop: ElysBarMetrics.inputTrailingAccessoryHitSlop
+        )
         trailingBackgroundView.backgroundColor = UIColor(
             red: 0x1F / 255.0,
             green: 0x1F / 255.0,
@@ -393,11 +399,11 @@ final class ElysInputBarView: UIView, UITextViewDelegate, UIGestureRecognizerDel
         )
     }
 
-    private func configureButtonShell(_ button: UIButton) {
+    private func configureButtonShell(_ button: UIButton, hitSlop: CGSize) {
         button.imageView?.contentMode = .scaleAspectFit
         button.adjustsImageWhenHighlighted = true
         if let button = button as? ElysInputAccessoryButton {
-            button.hitSlop = ElysBarMetrics.inputAccessoryHitSlop
+            button.hitSlop = hitSlop
         }
     }
 

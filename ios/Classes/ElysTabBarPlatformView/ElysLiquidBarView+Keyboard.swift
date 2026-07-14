@@ -39,6 +39,10 @@ extension ElysLiquidBarView {
             height: height,
             topInWindow: visible ? keyboardTop : nil
         )
+        optionPresenter.updateKeyboard(
+            topInWindow: visible ? keyboardTop : nil,
+            window: window
+        )
         pendingLayoutAnimationDuration = max(0.18, duration)
         let state = interactionCoordinator.renderState
         if visible {
@@ -62,6 +66,7 @@ extension ElysLiquidBarView {
         stopKeyboardTracking()
         interactionCoordinator.keyboardDidHideCleanup()
         applyInputRenderState(interactionCoordinator.renderState)
+        optionPresenter.updateKeyboard(topInWindow: nil, window: window)
         if !interactionCoordinator.inputActive {
             inputBar.finishDismissalAnimation()
         }
