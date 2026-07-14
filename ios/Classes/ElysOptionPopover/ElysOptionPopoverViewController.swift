@@ -175,7 +175,7 @@ final class ElysOptionPopoverView: UIView {
         )
         let overflows = scrollView.contentSize.height > scrollView.bounds.height + 0.5
         scrollView.isScrollEnabled = overflows
-        scrollView.showsVerticalScrollIndicator = overflows
+        scrollView.showsVerticalScrollIndicator = false
     }
 
     static func preferredSize(

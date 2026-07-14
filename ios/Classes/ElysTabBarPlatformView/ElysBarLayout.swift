@@ -25,7 +25,7 @@ enum ElysBarMetrics {
     static let tabBarOverlap: CGFloat = 22
     static let compactTabBarOverlap: CGFloat = 22
     static let inputOuterInset: CGFloat = 27
-    static let inputSpacing: CGFloat = 10
+    static let inputSpacing: CGFloat = 12
     static let inputKeyboardGap: CGFloat = 2
     static let inputCollapsedHeight: CGFloat = 62
     static let expandedTextHorizontalInset: CGFloat = 15
