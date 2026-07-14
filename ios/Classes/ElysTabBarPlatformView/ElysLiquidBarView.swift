@@ -52,6 +52,7 @@ final class ElysLiquidBarView: UIView {
         glassContainerView.frame = bounds
         layoutNormal()
         layoutInput(interactionCoordinator.renderState)
+        optionPresenter.relayout()
     }
 
     func apply(_ config: ElysBarConfig, animated: Bool = true) {
@@ -184,7 +185,11 @@ final class ElysLiquidBarView: UIView {
 
     private func presentInputOptions(from sourceView: UIView) {
         let keepFocus = inputBar.isTextInputFocused
-        optionPresenter.present(from: sourceView, in: self) { [weak self] item in
+        optionPresenter.present(
+            from: sourceView,
+            in: self,
+            keyboardTopInWindow: interactionCoordinator.renderState.keyboard.topInWindow
+        ) { [weak self] item in
             guard let self else { return }
             self.onEvent?("inputOptionTapped", [
                 "id": item.id,

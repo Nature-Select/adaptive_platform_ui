@@ -18,12 +18,14 @@ enum ElysBarMetrics {
     static let compactSideInset: CGFloat = 20
     static let trailingInset: CGFloat = -4
     static let compactTrailingInset: CGFloat = -4
-    static let groupSpacing: CGFloat = -8
-    static let compactGroupSpacing: CGFloat = -8
-    static let tabBarOverlap: CGFloat = 0
-    static let compactTabBarOverlap: CGFloat = 0
+    static let groupSpacing: CGFloat = 10
+    static let compactGroupSpacing: CGFloat = 10
+    // iOS 26 浮动 UITabBar 的可见玻璃背景相对外层 frame 自带约 22pt
+    // 左缩进；外层向左补偿后，按钮与可见 TabBar 的最终间距才是 10pt。
+    static let tabBarOverlap: CGFloat = 22
+    static let compactTabBarOverlap: CGFloat = 22
     static let inputOuterInset: CGFloat = 27
-    static let inputSpacing: CGFloat = 12
+    static let inputSpacing: CGFloat = 10
     static let inputKeyboardGap: CGFloat = 2
     static let inputCollapsedHeight: CGFloat = 62
     static let expandedTextHorizontalInset: CGFloat = 15
@@ -42,7 +44,10 @@ enum ElysBarMetrics {
     static let inputExpandedLeadingAccessoryBottomInset: CGFloat = 20
     static let inputTrailingAccessoryOuterInset: CGFloat = 13
     static let inputAccessoryTextGap: CGFloat = 8
-    static let inputAccessoryHitSlop: CGFloat = 11
+    // 加号视觉尺寸保持 22pt；命中范围扩到 46×62pt，覆盖整条折叠输入栏高度，
+    // 同时避免向右过度侵入文本输入区域。
+    static let inputLeadingAccessoryHitSlop = CGSize(width: 12, height: 20)
+    static let inputTrailingAccessoryHitSlop = CGSize(width: 11, height: 11)
     static let inputFontSize: CGFloat = 15
     static let expandedInputCornerRadius: CGFloat = 31
     static let glassMergeSpacing: CGFloat = 14

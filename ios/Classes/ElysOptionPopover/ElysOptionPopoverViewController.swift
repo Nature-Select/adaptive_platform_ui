@@ -5,7 +5,6 @@ final class ElysOptionPopoverView: UIView {
     private enum Metrics {
         static let minWidth: CGFloat = 220
         static let maxWidth: CGFloat = 300
-        static let maxHeight: CGFloat = 458
         static let verticalInset: CGFloat = 20
         static let horizontalInset: CGFloat = 20
         static let rowHeight: CGFloat = 38
@@ -27,6 +26,7 @@ final class ElysOptionPopoverView: UIView {
     }()
     private let scrollView = UIScrollView(frame: .zero)
     private var items: [ElysInputOptionConfig]
+    private var maximumHeight: CGFloat
     private var rows: [ElysOptionRowView] = []
     private var separators: [UIView] = []
     private weak var animationSourceView: UIView?
@@ -34,12 +34,17 @@ final class ElysOptionPopoverView: UIView {
     init(
         items: [ElysInputOptionConfig],
         assetLoader: ElysAssetLoader,
+        maximumHeight: CGFloat,
         onSelect: @escaping (ElysInputOptionConfig) -> Void
     ) {
         self.items = items
         self.assetLoader = assetLoader
+        self.maximumHeight = maximumHeight
         self.onSelect = onSelect
-        super.init(frame: CGRect(origin: .zero, size: Self.preferredSize(for: items)))
+        super.init(frame: CGRect(
+            origin: .zero,
+            size: Self.preferredSize(for: items, maximumHeight: maximumHeight)
+        ))
         setup()
         rebuildRows()
     }
@@ -91,8 +96,15 @@ final class ElysOptionPopoverView: UIView {
 
     func update(items: [ElysInputOptionConfig]) {
         self.items = items
-        frame.size = Self.preferredSize(for: items)
+        frame.size = Self.preferredSize(for: items, maximumHeight: maximumHeight)
         rebuildRows()
+    }
+
+    func setMaximumHeight(_ maximumHeight: CGFloat) {
+        guard self.maximumHeight != maximumHeight else { return }
+        self.maximumHeight = maximumHeight
+        frame.size = Self.preferredSize(for: items, maximumHeight: maximumHeight)
+        setNeedsLayout()
     }
 
     private func setup() {
@@ -105,6 +117,7 @@ final class ElysOptionPopoverView: UIView {
         glassView.clipsToBounds = true
         scrollView.backgroundColor = .clear
         scrollView.showsVerticalScrollIndicator = false
+        scrollView.contentInsetAdjustmentBehavior = .never
         addSubview(glassView)
         glassView.contentView.addSubview(scrollView)
     }
@@ -160,12 +173,18 @@ final class ElysOptionPopoverView: UIView {
             width: scrollView.bounds.width,
             height: y + Metrics.verticalInset
         )
+        let overflows = scrollView.contentSize.height > scrollView.bounds.height + 0.5
+        scrollView.isScrollEnabled = overflows
+        scrollView.showsVerticalScrollIndicator = overflows
     }
 
-    static func preferredSize(for items: [ElysInputOptionConfig]) -> CGSize {
+    static func preferredSize(
+        for items: [ElysInputOptionConfig],
+        maximumHeight: CGFloat
+    ) -> CGSize {
         let width = preferredWidth(for: items)
         let rawHeight = contentHeight(for: items)
-        return CGSize(width: width, height: min(Metrics.maxHeight, rawHeight))
+        return CGSize(width: width, height: min(max(0, maximumHeight), rawHeight))
     }
 
     private static func preferredWidth(for items: [ElysInputOptionConfig]) -> CGFloat {
